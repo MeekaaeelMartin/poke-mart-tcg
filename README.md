@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Poke Mart TCG
 
-## Getting Started
+South Africa's Pokemon TCG companion — free card search, live ZAR pricing via [CardDex](https://carddex.dev/), and a **R50/month** premium portfolio dashboard.
 
-First, run the development server:
+## Where to put your CardDex API key
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Open **`.env`** in the project root and set:
+
+```env
+CARDDEX_API_KEY="pk_live_YOUR_ACTUAL_KEY"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Never put the key in frontend code or commit it to git (`.env` is gitignored).
+- The key is only used **server-side** by the nightly sync (`/api/cron/sync` and `npm run sync`).
+- Get a free key at https://carddex.dev/
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Also set `AUTH_SECRET` to a long random string before production:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+openssl rand -base64 32
+```
 
-## Learn More
+## Quick start
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run db:setup    # create SQLite DB + seed blog + demo user
+npm run sync        # pull sets/prices/cards from CardDex (needs API key)
+npm run dev         # http://localhost:3000
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Demo premium account (after seed)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Email: `trainer@poke-mart-tcg.co.za`
+- Password: `demo1234`
+- Already Premium — open `/dashboard`
 
-## Deploy on Vercel
+## Nightly 3:00 AM sync
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every night the server should ping CardDex, download updated prices, and **overwrite** local DB prices.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Method | Details |
+|--------|---------|
+| **Vercel Cron** | `vercel.json` runs `GET /api/cron/sync` at `0 1 * * *` UTC (= **03:00 SAST**) |
+| **Manual** | `npm run sync` |
+| **HTTP** | `curl "http://localhost:3000/api/cron/sync?secret=YOUR_CRON_SECRET"` |
+| **crontab** | `0 3 * * * curl -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/sync` |
+
+Protect production with `CRON_SECRET` in `.env`.
+
+## Features
+
+| Feature | Access |
+|---------|--------|
+| Search / browse cards, sets, prices, blog, contact | Free |
+| Portfolio, watchlist, activity, AI upload UI | Premium R50/mo (`/premium`) |
+| Price data | CardDex → local SQLite, converted EUR→ZAR via `EUR_TO_ZAR` |
+
+## Stack
+
+Next.js 16 · Prisma · SQLite · NextAuth (credentials) · Tailwind CSS 4 · CardDex API
