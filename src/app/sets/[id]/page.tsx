@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  fetchSealed,
+  fetchAllPages,
+  fetchCards,
   fetchSetById,
-  fetchSetCards,
   normalizeCardPrices,
   sealedPriceZar,
   type CardDexCard,
 } from "@/lib/carddex";
+import { loadSealedCatalog } from "@/lib/sealedCatalog";
 import { eurToZar, formatZar } from "@/lib/format";
 import { mediaUrl } from "@/lib/media";
 import { CardTile } from "@/components/CardUI";
@@ -69,16 +70,24 @@ export default async function SetDetailPage({ params }: Props) {
     };
   }
 
+  // Use /v1/cards?set=…&include=images,prices — set /cards endpoint omits embeds
   let cards: CardDexCard[] = [];
   let totalCards = 0;
   try {
-    const res = await fetchSetCards(id, { pageSize: 48, include: "images,prices" });
-    cards = res.data || [];
-    totalCards = res.meta?.total || cards.length;
+    cards = await fetchAllPages<CardDexCard>(
+      (page, pageSize) =>
+        fetchCards({
+          set: id,
+          page,
+          pageSize,
+          include: "images,prices",
+        }),
+      { pageSize: 50, maxPages: 20 }
+    );
+    totalCards = cards.length;
   } catch {
     const localCards = await prisma.card.findMany({
       where: { setId: id },
-      take: 48,
       orderBy: { name: "asc" },
     });
     cards = localCards.map((c) => ({
@@ -95,10 +104,9 @@ export default async function SetDetailPage({ params }: Props) {
     totalCards = localCards.length;
   }
 
-  let sealed: Awaited<ReturnType<typeof fetchSealed>>["data"] = [];
+  let sealed: Awaited<ReturnType<typeof loadSealedCatalog>> = [];
   try {
-    const res = await fetchSealed({ set_id: id, pageSize: 8 });
-    sealed = res.data || [];
+    sealed = await loadSealedCatalog({ setId: id, pageSize: 50, maxPages: 4, limit: 24 });
   } catch {
     sealed = [];
   }

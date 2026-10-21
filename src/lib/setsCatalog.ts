@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { fetchSets, type CardDexSet } from "./carddex";
+import { fetchAllPages, fetchSets, type CardDexSet } from "./carddex";
 
 export type SetSummary = {
   id: string;
@@ -97,10 +97,13 @@ export async function loadSetsCatalog(opts?: {
   const pageSize = opts?.pageSize ?? 100;
 
   try {
-    const remote = await fetchSets({ pageSize });
-    const rows = (remote.data || []).map(mapRemoteSet).filter(isDisplayableSet);
+    const remote = await fetchAllPages<CardDexSet>(
+      (page, size) => fetchSets({ page, pageSize: size }),
+      { pageSize, maxPages: 20 }
+    );
+    const rows = remote.map(mapRemoteSet).filter(isDisplayableSet);
     if (rows.length > 0) {
-      void persistRemoteSets(remote.data || []);
+      void persistRemoteSets(remote);
       return rows.sort((a, b) => {
         const ad = a.releaseDate || "";
         const bd = b.releaseDate || "";
@@ -141,14 +144,29 @@ export async function loadFeaturedSets(limit = 3): Promise<
     logoUrl: string | null;
   }>
 > {
-  const catalog = await loadSetsCatalog({ pageSize: 24 });
-  const withLogos = catalog.filter((s) => s.logoUrl);
-  const pick = (withLogos.length >= limit ? withLogos : catalog).slice(0, limit);
-  return pick.map((s) => ({
-    id: s.id,
-    name: s.name,
-    setCode: s.setCode,
-    totalCards: s.totalCards ?? s.officialCards,
-    logoUrl: s.logoUrl,
-  }));
+  try {
+    const remote = await fetchSets({ pageSize: Math.max(24, limit * 4) });
+    const catalog = (remote.data || []).map(mapRemoteSet).filter(isDisplayableSet);
+    void persistRemoteSets(remote.data || []);
+    const withLogos = catalog.filter((s) => s.logoUrl);
+    const pick = (withLogos.length >= limit ? withLogos : catalog).slice(0, limit);
+    return pick.map((s) => ({
+      id: s.id,
+      name: s.name,
+      setCode: s.setCode,
+      totalCards: s.totalCards ?? s.officialCards,
+      logoUrl: s.logoUrl,
+    }));
+  } catch {
+    const catalog = await loadSetsCatalog({ pageSize: 50 });
+    const withLogos = catalog.filter((s) => s.logoUrl);
+    const pick = (withLogos.length >= limit ? withLogos : catalog).slice(0, limit);
+    return pick.map((s) => ({
+      id: s.id,
+      name: s.name,
+      setCode: s.setCode,
+      totalCards: s.totalCards ?? s.officialCards,
+      logoUrl: s.logoUrl,
+    }));
+  }
 }

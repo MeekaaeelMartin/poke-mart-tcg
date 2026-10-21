@@ -16,16 +16,10 @@ import { eurToZar } from "./format";
 
 function priceFromCard(c: CardDexCard) {
   const row = normalizeCardPrices(c.prices);
-  if (!row || row.trend_price == null) return undefined;
-  return {
-    priceEur: row.trend_price,
-    priceZar: eurToZar(row.trend_price),
-    avg7dZar: eurToZar(row.avg_7d ?? null),
-    avg30dZar: eurToZar(row.avg_30d ?? null),
-    pctChange1d: row.pct_change_1d ?? null,
-    pctChange7d: row.pct_change_7d ?? null,
-    pctChange30d: row.pct_change_30d ?? null,
-  };
+  if (!row) return undefined;
+  const mapped = mapPriceToZar(row);
+  if (mapped.priceZar == null && mapped.priceEur == null) return undefined;
+  return mapped;
 }
 
 function cardImages(c: CardDexCard) {
@@ -104,26 +98,60 @@ async function ensureSetExists(setId: string, setName?: string | null) {
 async function backfillMissingPrices<T extends { id: string; priceZar?: number | null }>(
   cards: T[]
 ): Promise<T[]> {
-  const missing = cards.filter((c) => c.priceZar == null).slice(0, 10);
-  await Promise.all(
-    missing.map(async (card) => {
-      try {
-        const res = await fetchCardPrices(card.id);
-        const row = Array.isArray(res.data) ? res.data[0] : res.data;
-        if (!row) return;
-        const mapped = mapPriceToZar(row);
-        if (mapped.priceZar == null) return;
-        await prisma.card.update({
-          where: { id: card.id },
-          data: { ...mapped, lastSyncedAt: new Date() },
-        });
-        Object.assign(card, mapped);
-      } catch {
-        /* CardDex has no market row for many older commons */
-      }
-    })
-  );
+  const missing = cards.filter((c) => c.priceZar == null);
+  // Parallel but bounded — one page of results
+  const concurrency = 8;
+  for (let i = 0; i < missing.length; i += concurrency) {
+    const chunk = missing.slice(i, i + concurrency);
+    await Promise.all(
+      chunk.map(async (card) => {
+        try {
+          const res = await fetchCardPrices(card.id);
+          const rows = Array.isArray(res.data) ? res.data : res.data ? [res.data] : [];
+          const row =
+            rows.find((r) => r.trend_price != null || r.avg_price != null) || rows[0];
+          if (!row) return;
+          const mapped = mapPriceToZar(row);
+          if (mapped.priceZar == null) return;
+          try {
+            await prisma.card.update({
+              where: { id: card.id },
+              data: { ...mapped, lastSyncedAt: new Date() },
+            });
+          } catch {
+            /* ignore persist */
+          }
+          Object.assign(card, mapped);
+        } catch {
+          /* CardDex has no market row for some prints */
+        }
+      })
+    );
+  }
   return cards;
+}
+
+function mapRemoteCard(c: CardDexCard) {
+  const price = priceFromCard(c);
+  const images = cardImages(c);
+  return {
+    id: c.id,
+    setId: c.set_id,
+    name: c.name,
+    number: c.number || null,
+    rarity: c.rarity || null,
+    setName: c.set_name || null,
+    setCode: c.set_code || null,
+    imageSmall: images.imageSmall,
+    imageLarge: images.imageLarge,
+    imageThumb: images.imageThumb,
+    priceZar: price?.priceZar ?? null,
+    priceEur: price?.priceEur ?? null,
+    pctChange1d: price?.pctChange1d ?? null,
+    pctChange7d: price?.pctChange7d ?? null,
+    pctChange30d: price?.pctChange30d ?? null,
+    types: c.types ? JSON.stringify(c.types) : null,
+  };
 }
 
 async function upsertFromPriceRow(p: CardDexPrice) {
@@ -303,7 +331,10 @@ export async function runNightlySync(options?: { maxCardPages?: number; fullCard
   }
 }
 
-/** Live search: prefer local DB, fall back to CardDex and cache results */
+/**
+ * Live CardDex is the source of truth for catalogue totals.
+ * Important: use `name=` (not `q=`) — CardDex `q` omits images/prices embeds.
+ */
 export async function searchCards(opts: {
   q?: string;
   set?: string;
@@ -318,10 +349,73 @@ export async function searchCards(opts: {
   const { ensureDatabase } = await import("./ensureDatabase");
   await ensureDatabase();
 
-  const page = opts.page || 1;
-  const pageSize = opts.pageSize || 12;
-  const where: Record<string, unknown> = {};
+  const page = Math.max(1, opts.page || 1);
+  const pageSize = Math.min(50, Math.max(1, opts.pageSize || 24));
+  const hasPriceFilter = opts.minPrice != null || opts.maxPrice != null;
 
+  // Price-range filters need ZAR rows in SQLite — hydrate matching CardDex pages first.
+  if (hasPriceFilter && (opts.q || opts.set || opts.type || opts.rarity)) {
+    try {
+      await hydrateCardDexQuery(
+        {
+          name: opts.q || undefined,
+          set: opts.set,
+          type: opts.type,
+          rarity: opts.rarity,
+        },
+        8
+      );
+    } catch {
+      /* continue with whatever is cached */
+    }
+  } else {
+    // Normal browse/search: one live page with images+prices, then cache
+    try {
+      const remote = await fetchCards({
+        // `name` returns embeds; bare `q` does not
+        name: opts.q || undefined,
+        set: opts.set,
+        type: opts.type,
+        rarity: opts.rarity,
+        page,
+        pageSize,
+        include: "images,prices",
+        sort: opts.sort === "name" ? "name" : undefined,
+      });
+
+      for (const c of remote.data || []) {
+        try {
+          await ensureSetExists(c.set_id, c.set_name);
+          await upsertCardFromDex(c, priceFromCard(c));
+        } catch {
+          /* ignore cache errors */
+        }
+      }
+
+      let cards = (remote.data || []).map(mapRemoteCard);
+      cards = await backfillMissingPrices(cards);
+
+      if (opts.sort === "price_desc") {
+        cards = [...cards].sort((a, b) => (b.priceZar ?? -1) - (a.priceZar ?? -1));
+      } else if (opts.sort === "price_asc") {
+        cards = [...cards].sort((a, b) => (a.priceZar ?? Number.POSITIVE_INFINITY) - (b.priceZar ?? Number.POSITIVE_INFINITY));
+      }
+
+      const meta = remote.meta || {
+        total: cards.length,
+        page,
+        pageSize,
+        totalPages: 1,
+      };
+
+      return { cards, meta };
+    } catch (e) {
+      console.warn("Live CardDex search failed, falling back to local DB", e);
+    }
+  }
+
+  // Local DB path (price filters, or live API unavailable)
+  const where: Record<string, unknown> = {};
   if (opts.q) {
     where.OR = [
       { name: { contains: opts.q } },
@@ -332,7 +426,7 @@ export async function searchCards(opts: {
   if (opts.set) where.setId = opts.set;
   if (opts.rarity) where.rarity = { contains: opts.rarity };
   if (opts.type) where.types = { contains: opts.type };
-  if (opts.minPrice != null || opts.maxPrice != null) {
+  if (hasPriceFilter) {
     where.priceZar = {
       ...(opts.minPrice != null ? { gte: opts.minPrice } : {}),
       ...(opts.maxPrice != null ? { lte: opts.maxPrice } : {}),
@@ -343,52 +437,6 @@ export async function searchCards(opts: {
   if (opts.sort === "price_desc") orderBy = { priceZar: "desc" };
   if (opts.sort === "price_asc") orderBy = { priceZar: "asc" };
   if (opts.sort === "name") orderBy = { name: "asc" };
-
-  let localCount = 0;
-  try {
-    localCount = await prisma.card.count();
-  } catch {
-    localCount = 0;
-  }
-
-  // If DB is empty / thin, hydrate from CardDex for this query
-  if (localCount < 20 || (opts.q && localCount > 0)) {
-    try {
-      const remote = await fetchCards({
-        q: opts.q || undefined,
-        name: !opts.q ? undefined : undefined,
-        set: opts.set,
-        type: opts.type,
-        rarity: opts.rarity,
-        page,
-        pageSize,
-        include: "images,prices",
-        sort: "name",
-      });
-      for (const c of remote.data || []) {
-        await ensureSetExists(c.set_id, c.set_name);
-        await upsertCardFromDex(c, priceFromCard(c));
-      }
-    } catch (e) {
-      console.warn("Live CardDex search fallback failed", e);
-    }
-  } else if (opts.q) {
-    // Still try live API to enrich
-    try {
-      const remote = await fetchCards({
-        q: opts.q,
-        page: 1,
-        pageSize: Math.min(pageSize, 25),
-        include: "images,prices",
-      });
-      for (const c of remote.data || []) {
-        await ensureSetExists(c.set_id, c.set_name);
-        await upsertCardFromDex(c, priceFromCard(c));
-      }
-    } catch {
-      /* use local */
-    }
-  }
 
   try {
     const [total, cards] = await Promise.all([
@@ -401,59 +449,52 @@ export async function searchCards(opts: {
       }),
     ]);
 
-    if (cards.length > 0 || !opts.q) {
-      const enriched = await backfillMissingPrices(cards);
-      return {
-        cards: enriched,
-        meta: {
-          total,
-          page,
-          pageSize,
-          totalPages: Math.max(1, Math.ceil(total / pageSize)),
-        },
-      };
-    }
-  } catch {
-    /* fall through to live API */
-  }
-
-  // Live-only fallback (no usable DB rows)
-  const remote = await fetchCards({
-    q: opts.q || undefined,
-    set: opts.set,
-    type: opts.type,
-    rarity: opts.rarity,
-    page,
-    pageSize,
-    include: "images,prices",
-  });
-  const cards = (remote.data || []).map((c) => {
-    const price = priceFromCard(c);
+    const enriched = await backfillMissingPrices(cards);
     return {
-      id: c.id,
-      setId: c.set_id,
-      name: c.name,
-      number: c.number || null,
-      rarity: c.rarity || null,
-      setName: c.set_name || null,
-      imageSmall: c.images?.[0]?.small_url || c.image_url || null,
-      imageLarge: c.images?.[0]?.large_url || null,
-      priceZar: price?.priceZar ?? null,
-      pctChange1d: price?.pctChange1d ?? null,
-      pctChange7d: price?.pctChange7d ?? null,
-      types: c.types ? JSON.stringify(c.types) : null,
+      cards: enriched,
+      meta: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
     };
-  });
+  } catch {
+    return {
+      cards: [],
+      meta: { total: 0, page, pageSize, totalPages: 1 },
+    };
+  }
+}
 
-  const enriched = await backfillMissingPrices(cards);
-
-  return {
-    cards: enriched,
-    meta: remote.meta || {
-      total: cards.length,
+/** Pull several CardDex pages into SQLite so ZAR filters / offline browse work. */
+async function hydrateCardDexQuery(
+  params: {
+    name?: string;
+    set?: string;
+    type?: string;
+    rarity?: string;
+  },
+  maxPages = 8
+) {
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const remote = await fetchCards({
+      ...params,
       page,
-      pageSize,
-      totalPages: 1,
-    },
-  };
+      pageSize: 50,
+      include: "images,prices",
+    });
+    for (const c of remote.data || []) {
+      try {
+        await ensureSetExists(c.set_id, c.set_name);
+        await upsertCardFromDex(c, priceFromCard(c));
+      } catch {
+        /* ignore */
+      }
+    }
+    totalPages = remote.meta?.totalPages || 1;
+    page += 1;
+  } while (page <= totalPages && page <= maxPages);
 }

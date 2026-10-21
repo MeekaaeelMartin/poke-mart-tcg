@@ -6,7 +6,6 @@ import { Search, TrendingUp, Briefcase } from "lucide-react";
 import { HomeSearch } from "@/components/HomeSearch";
 import {
   fetchPriceTrends,
-  fetchSealed,
   fetchTopPrices,
   mapPriceToZar,
   sealedPriceZar,
@@ -14,6 +13,7 @@ import {
 import { mediaUrl } from "@/lib/media";
 import { ensureDatabase } from "@/lib/ensureDatabase";
 import { loadFeaturedSets } from "@/lib/setsCatalog";
+import { loadSealedCatalog } from "@/lib/sealedCatalog";
 import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
 
 export const dynamic = "force-dynamic";
@@ -138,14 +138,31 @@ async function getHomeData() {
     img: string | null;
   }> = [];
   try {
-    const sealed = await fetchSealed({ type: "elite_trainer_box", pageSize: 8 });
-    etbs = (sealed.data || []).slice(0, 4).map((p) => ({
-      id: p.id,
-      name: p.name,
-      price: sealedPriceZar(p),
-      pct: p.latest_price?.price_change_7d ?? p.latest_price?.price_change_1d ?? null,
-      img: p.image_url || p.source_image_url || null,
-    }));
+    const sealed = await loadSealedCatalog({
+      type: "elite_trainer_box",
+      pageSize: 50,
+      maxPages: 3,
+      limit: 8,
+    });
+    etbs = sealed
+      .filter((p) => sealedPriceZar(p) != null)
+      .slice(0, 8)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: sealedPriceZar(p),
+        pct: p.latest_price?.price_change_7d ?? p.latest_price?.price_change_1d ?? null,
+        img: p.image_url || p.source_image_url || null,
+      }));
+    if (etbs.length < 4) {
+      etbs = sealed.slice(0, 8).map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: sealedPriceZar(p),
+        pct: p.latest_price?.price_change_7d ?? p.latest_price?.price_change_1d ?? null,
+        img: p.image_url || p.source_image_url || null,
+      }));
+    }
   } catch {
     etbs = [];
   }
@@ -308,7 +325,7 @@ export default async function HomePage() {
               Sealed ETB data loads live from CardDex. Check your API key if this stays empty.
             </p>
           ) : (
-            etbs.map((etb) => (
+            etbs.slice(0, 8).map((etb) => (
               <Link
                 key={etb.id}
                 href={`/sealed/${encodeURIComponent(etb.id)}`}

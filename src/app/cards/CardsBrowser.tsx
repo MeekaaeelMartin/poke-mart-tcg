@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal } from "lucide-react";
 import { CardTile, EmptyState } from "@/components/CardUI";
@@ -110,6 +110,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
   const initialPage = Number(searchParams.get("page") || 1);
 
   const [q, setQ] = useState(initialQ);
+  const [debouncedQ, setDebouncedQ] = useState(initialQ);
   const [selectedSets, setSelectedSets] = useState<string[]>(
     initialSet ? [initialSet] : []
   );
@@ -129,9 +130,23 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const skipQPageReset = useRef(true);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    if (skipQPageReset.current) {
+      skipQPageReset.current = false;
+      return;
+    }
+    setPage(1);
+  }, [debouncedQ]);
+
   useEffect(() => {
     const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
+    if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
     if (selectedSets.length === 1) params.set("set", selectedSets[0]);
     if (selectedTypes.length === 1) params.set("type", selectedTypes[0]);
     if (selectedRarities.length === 1) params.set("rarity", selectedRarities[0]);
@@ -141,7 +156,17 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
     if (page > 1) params.set("page", String(page));
     const qs = params.toString();
     router.replace(qs ? `/cards?${qs}` : "/cards", { scroll: false });
-  }, [q, selectedSets, selectedTypes, selectedRarities, minPrice, maxPrice, sort, page, router]);
+  }, [
+    debouncedQ,
+    selectedSets,
+    selectedTypes,
+    selectedRarities,
+    minPrice,
+    maxPrice,
+    sort,
+    page,
+    router,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -151,7 +176,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
       setError(null);
 
       const params = new URLSearchParams();
-      if (q.trim()) params.set("q", q.trim());
+      if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
       if (selectedSets.length === 1) params.set("set", selectedSets[0]);
       if (selectedTypes.length === 1) params.set("type", selectedTypes[0]);
       if (selectedRarities.length === 1) params.set("rarity", selectedRarities[0]);
@@ -159,6 +184,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
       if (maxPrice.trim()) params.set("max", maxPrice.trim());
       params.set("sort", sort);
       params.set("page", String(page));
+      params.set("pageSize", "24");
 
       try {
         const res = await fetch(`/api/cards?${params.toString()}`, {
@@ -178,7 +204,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
 
     load();
     return () => controller.abort();
-  }, [q, selectedSets, selectedTypes, selectedRarities, minPrice, maxPrice, sort, page]);
+  }, [debouncedQ, selectedSets, selectedTypes, selectedRarities, minPrice, maxPrice, sort, page]);
 
   const cards = useMemo(() => {
     if (!data?.cards) return [];

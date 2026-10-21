@@ -5,7 +5,8 @@ import { ensureDatabase } from "@/lib/ensureDatabase";
 import { SectionHeading, TrendRow } from "@/components/CardUI";
 import { formatPct, formatZar } from "@/lib/format";
 import { ArrowDownRight, ArrowUpRight, BarChart3, Crown, Layers } from "lucide-react";
-import { fetchPriceTrends, fetchSealed, mapPriceToZar, sealedPriceZar } from "@/lib/carddex";
+import { fetchPriceTrends, mapPriceToZar, sealedPriceZar } from "@/lib/carddex";
+import { loadSealedCatalog } from "@/lib/sealedCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -134,11 +135,14 @@ async function getMarketData() {
     pct: number | null;
   }> = [];
   try {
-    const res = await fetchSealed({ type: "booster_box", pageSize: 6 });
-    sealed = (res.data || []).slice(0, 3).map((p) => ({
+    const [boxes, etbs] = await Promise.all([
+      loadSealedCatalog({ type: "booster_box", pageSize: 50, maxPages: 2, limit: 12 }),
+      loadSealedCatalog({ type: "elite_trainer_box", pageSize: 50, maxPages: 2, limit: 12 }),
+    ]);
+    sealed = [...boxes, ...etbs].slice(0, 12).map((p) => ({
       id: p.id,
       name: p.name,
-      subtitle: (p.product_type || "booster box").replace(/_/g, " "),
+      subtitle: (p.product_type || "sealed").replace(/_/g, " "),
       price: sealedPriceZar(p),
       pct: p.latest_price?.price_change_7d ?? p.latest_price?.price_change_30d ?? null,
     }));
@@ -267,10 +271,10 @@ export default async function PricesPage() {
 
       <section className="mb-12">
         <h2 className="mb-4 text-lg font-semibold text-white">Sealed Product Metrics</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sealed.length === 0 ? (
             <p className="col-span-full text-sm text-zinc-500">
-              Booster box prices load live from CardDex.
+              Booster box and ETB prices load live from CardDex.
             </p>
           ) : (
             sealed.map((product) => (

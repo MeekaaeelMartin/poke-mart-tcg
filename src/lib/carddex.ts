@@ -154,7 +154,7 @@ export type CardDexSealed = {
   } | null;
 };
 
-type ListMeta = { total: number; page: number; pageSize: number; totalPages: number };
+export type ListMeta = { total: number; page: number; pageSize: number; totalPages: number };
 
 export async function fetchCards(params: Record<string, string | number | undefined> = {}) {
   const sp = new URLSearchParams();
@@ -172,6 +172,29 @@ export async function fetchSets(params: Record<string, string | number | undefin
   });
   if (!sp.has("pageSize")) sp.set("pageSize", "100");
   return carddexFetch<{ data: CardDexSet[]; meta?: ListMeta }>(`/v1/sets?${sp}`);
+}
+
+/** Walk every CardDex list page (sets, sealed, cards) up to maxPages. */
+export async function fetchAllPages<T>(
+  fetcher: (page: number, pageSize: number) => Promise<{ data?: T[] | null; meta?: ListMeta | null }>,
+  opts?: { pageSize?: number; maxPages?: number }
+): Promise<T[]> {
+  const pageSize = opts?.pageSize ?? 100;
+  const maxPages = opts?.maxPages ?? 40;
+  const all: T[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const res = await fetcher(page, pageSize);
+    const batch = res.data || [];
+    all.push(...batch);
+    totalPages = res.meta?.totalPages || (batch.length < pageSize ? page : page + 1);
+    if (batch.length === 0) break;
+    page += 1;
+  } while (page <= totalPages && page <= maxPages);
+
+  return all;
 }
 
 export async function fetchPriceTrends(params: Record<string, string | number | undefined> = {}) {
@@ -249,33 +272,42 @@ export async function fetchCardPriceHistory(cardId: string, days = 90) {
 
 export function normalizeCardPrices(prices: CardDexCard["prices"]): CardDexPriceRow | null {
   if (!prices) return null;
-  if (Array.isArray(prices)) return prices[0] || null;
+  if (Array.isArray(prices)) {
+    // Prefer a row that actually has a market value
+    const withPrice =
+      prices.find((p) => p.trend_price != null || p.avg_price != null) || prices[0];
+    return withPrice || null;
+  }
   if ("trend_price" in prices || "avg_price" in prices) return prices as CardDexPriceRow;
   if ("trend" in prices) {
     return {
       trend_price: prices.trend ?? null,
       avg_7d: prices.avg_7d ?? null,
       avg_30d: prices.avg_30d ?? null,
+      pct_change_1d: (prices as { price_change_1d?: number }).price_change_1d ?? null,
+      pct_change_7d: (prices as { price_change_7d?: number }).price_change_7d ?? null,
+      pct_change_30d: (prices as { price_change_30d?: number }).price_change_30d ?? null,
     };
   }
   return null;
 }
 
-export function mapPriceToZar(p: CardDexPrice) {
+export function mapPriceToZar(p: CardDexPrice | CardDexPriceRow) {
   const eur = p.trend_price ?? p.avg_price ?? null;
+  const row = p as CardDexPriceRow & CardDexPrice;
   return {
     priceZar: eurToZar(eur),
     priceEur: eur,
-    avg7dZar: eurToZar(p.avg_7d ?? null),
-    avg30dZar: eurToZar(p.avg_30d ?? null),
-    pctChange1d: p.pct_change_1d ?? null,
-    pctChange7d: p.pct_change_7d ?? null,
-    pctChange30d: p.pct_change_30d ?? null,
+    avg7dZar: eurToZar(row.avg_7d ?? null),
+    avg30dZar: eurToZar(row.avg_30d ?? null),
+    pctChange1d: row.pct_change_1d ?? row.price_change_1d ?? null,
+    pctChange7d: row.pct_change_7d ?? row.price_change_7d ?? null,
+    pctChange30d: row.pct_change_30d ?? row.price_change_30d ?? null,
   };
 }
 
 export function sealedPriceZar(sealed: CardDexSealed) {
-  const eur = sealed.latest_price?.trend ?? sealed.latest_price?.avg ?? null;
+  const eur = sealed.latest_price?.trend ?? sealed.latest_price?.avg ?? sealed.latest_price?.low ?? null;
   return eurToZar(eur);
 }
 
