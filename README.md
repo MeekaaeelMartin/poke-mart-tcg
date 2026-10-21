@@ -56,6 +56,10 @@ Protect production with `CRON_SECRET` in `.env`.
 | Portfolio, watchlist, activity, AI upload UI | Premium R50/mo (`/premium`) |
 | Price data | CardDex → local SQLite, converted EUR→ZAR via `EUR_TO_ZAR` |
 
+## Deploy on Hostinger
+
+See **[HOSTINGER.md](./HOSTINGER.md)** — connect this GitHub repo as a Node.js Web App in hPanel, add env vars (including `CARDDEX_API_KEY`), and deploy. Pushes to `main` auto-redeploy.
+
 ## Stack
 
 Next.js 16 · Prisma · SQLite · NextAuth (credentials) · Tailwind CSS 4 · CardDex API

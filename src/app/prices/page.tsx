@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { SectionHeading, TrendRow } from "@/components/CardUI";
 import { formatPct, formatZar } from "@/lib/format";
 import { ArrowDownRight, ArrowUpRight, BarChart3, Crown, Layers } from "lucide-react";
-import { fetchSealed, sealedPriceZar } from "@/lib/carddex";
+import { fetchPriceTrends, fetchSealed, mapPriceToZar, sealedPriceZar } from "@/lib/carddex";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,48 @@ export const metadata = {
   title: "Market Prices & Trends",
 };
 
+async function hydrateLiveMovers() {
+  try {
+    const res = await fetchPriceTrends({ pageSize: 40 });
+    for (const p of res.data || []) {
+      if (!p.card_id) continue;
+      const mapped = mapPriceToZar(p);
+      await prisma.set.upsert({
+        where: { id: p.set_id || "unknown" },
+        create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
+        update: {},
+      });
+      await prisma.card.upsert({
+        where: { id: p.card_id },
+        create: {
+          id: p.card_id,
+          setId: p.set_id || "unknown",
+          name: p.card_name || p.card_id,
+          number: p.number || null,
+          rarity: p.rarity || null,
+          imageThumb: p.image_thumb || null,
+          imageSmall: p.image_small || null,
+          imageLarge: p.image_large || null,
+          setName: p.set_id || null,
+          ...mapped,
+          lastSyncedAt: new Date(),
+        },
+        update: {
+          ...mapped,
+          imageSmall: p.image_small || undefined,
+          imageLarge: p.image_large || undefined,
+          lastSyncedAt: new Date(),
+        },
+      });
+    }
+  } catch {
+    /* use local cache */
+  }
+}
+
 async function getMarketData() {
+  await hydrateLiveMovers();
+
   const [totalTracked, avgAgg, topCard, trendingUp, trendingDown] = await Promise.all([
     prisma.card.count({ where: { priceZar: { not: null } } }),
     prisma.card.aggregate({

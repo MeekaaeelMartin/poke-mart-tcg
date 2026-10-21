@@ -1,5 +1,6 @@
 import { prisma } from "./db";
 import {
+  fetchCardById,
   fetchCards,
   fetchPriceTrends,
   fetchSets,
@@ -167,26 +168,30 @@ export async function runNightlySync(options?: { maxCardPages?: number; fullCard
     // 2) Overwrite prices from trends + top (covers movers and high value)
     for (const fetcher of [fetchPriceTrends, fetchTopPrices]) {
       try {
-        const res = await fetcher({ pageSize: 100 });
-        for (const p of res.data || []) {
-          await upsertFromPriceRow(p);
-          cardsUpdated++;
+        for (let page = 1; page <= 3; page++) {
+          const res = await fetcher({ pageSize: 100, page });
+          const rows = res.data || [];
+          if (!rows.length) break;
+          for (const p of rows) {
+            await upsertFromPriceRow(p);
+            cardsUpdated++;
+          }
+          await sleep(250);
         }
-        await sleep(250);
       } catch (e) {
         console.warn("Price batch failed", e);
       }
     }
 
-    // 3) Optionally pull card catalogue pages for browse/search offline
+    // 3) Pull card catalogue pages with prices + images
     if (options?.fullCards !== false) {
-      const maxPages = options?.maxCardPages ?? 8;
+      const maxPages = options?.maxCardPages ?? 20;
       for (let p = 1; p <= maxPages; p++) {
         try {
           const res = await fetchCards({
             page: p,
             pageSize: 50,
-            include: "images",
+            include: "images,prices",
             sort: "release_date",
             order: "desc",
           });
@@ -195,6 +200,7 @@ export async function runNightlySync(options?: { maxCardPages?: number; fullCard
             await upsertCardFromDex(c, priceFromCard(c));
             cardsUpdated++;
           }
+          if ((res.meta?.totalPages || 1) <= p) break;
           await sleep(300);
         } catch (e) {
           console.warn(`Card page ${p} failed`, e);
@@ -203,19 +209,36 @@ export async function runNightlySync(options?: { maxCardPages?: number; fullCard
       }
     }
 
-    // 4) Refresh prices for cards already in DB that still lack ZAR
+    // 4) Backfill ZAR prices for cards still missing them (live CardDex)
     const missing = await prisma.card.findMany({
-      where: { OR: [{ priceZar: null }, { lastSyncedAt: null }] },
-      take: 40,
+      where: { priceZar: null },
+      take: 80,
       select: { id: true },
     });
     for (const row of missing) {
       try {
-        const res = await fetchCards({ q: row.id, pageSize: 1, include: "prices,images" });
-        // fallback: skip if not found by id search — prices already partly covered
-        void res;
+        const { data } = await fetchCardById(row.id, "prices,images");
+        const price = normalizeCardPrices(data.prices);
+        if (price?.trend_price != null || price?.avg_price != null) {
+          const eur = price.trend_price ?? price.avg_price ?? null;
+          await prisma.card.update({
+            where: { id: row.id },
+            data: {
+              priceEur: eur,
+              priceZar: eurToZar(eur),
+              avg7dZar: eurToZar(price.avg_7d ?? null),
+              avg30dZar: eurToZar(price.avg_30d ?? null),
+              pctChange1d: price.pct_change_1d ?? price.price_change_1d ?? null,
+              pctChange7d: price.pct_change_7d ?? price.price_change_7d ?? null,
+              pctChange30d: price.pct_change_30d ?? price.price_change_30d ?? null,
+              lastSyncedAt: new Date(),
+            },
+          });
+          cardsUpdated++;
+        }
+        await sleep(120);
       } catch {
-        /* ignore */
+        /* ignore single-card failures */
       }
     }
 

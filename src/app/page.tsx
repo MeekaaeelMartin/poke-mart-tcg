@@ -1,38 +1,126 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { CardTile, SectionHeading } from "@/components/CardUI";
-import { formatZar, formatPct } from "@/lib/format";
+import { eurToZar, formatZar, formatPct } from "@/lib/format";
 import { Search, TrendingUp, Briefcase } from "lucide-react";
 import { HomeSearch } from "@/components/HomeSearch";
-import { fetchSealed, sealedPriceZar } from "@/lib/carddex";
+import {
+  fetchPriceTrends,
+  fetchSealed,
+  fetchSets,
+  fetchTopPrices,
+  mapPriceToZar,
+  sealedPriceZar,
+} from "@/lib/carddex";
 
 export const dynamic = "force-dynamic";
 
-async function getHomeData() {
-  const [trending, sets, blog] = await Promise.all([
-    prisma.card.findMany({
-      where: { priceZar: { not: null } },
-      orderBy: { pctChange1d: "desc" },
-      take: 5,
-    }),
-    prisma.set.findMany({
-      orderBy: { releaseDate: "desc" },
-      take: 3,
-    }),
-    prisma.blogPost.findMany({
-      orderBy: { publishedAt: "desc" },
-      take: 2,
-    }),
-  ]);
+async function hydrateLiveTrending() {
+  try {
+    const [trends, top] = await Promise.all([
+      fetchPriceTrends({ pageSize: 12 }),
+      fetchTopPrices({ pageSize: 12 }),
+    ]);
+    const rows = [...(trends.data || []), ...(top.data || [])];
+    const seen = new Set<string>();
+    const cards = [];
+    for (const p of rows) {
+      if (!p.card_id || seen.has(p.card_id)) continue;
+      seen.add(p.card_id);
+      const mapped = mapPriceToZar(p);
+      // Persist so portfolio/search stay warm
+      await prisma.set.upsert({
+        where: { id: p.set_id || "unknown" },
+        create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
+        update: {},
+      });
+      await prisma.card.upsert({
+        where: { id: p.card_id },
+        create: {
+          id: p.card_id,
+          setId: p.set_id || "unknown",
+          name: p.card_name || p.card_id,
+          number: p.number || null,
+          rarity: p.rarity || null,
+          imageThumb: p.image_thumb || null,
+          imageSmall: p.image_small || null,
+          imageLarge: p.image_large || null,
+          ...mapped,
+          lastSyncedAt: new Date(),
+        },
+        update: { ...mapped, lastSyncedAt: new Date() },
+      });
+      cards.push({
+        id: p.card_id,
+        name: p.card_name || p.card_id,
+        number: p.number || null,
+        setName: p.set_id || null,
+        rarity: p.rarity || null,
+        imageSmall: p.image_small || null,
+        imageLarge: p.image_large || null,
+        priceZar: mapped.priceZar ?? eurToZar(p.trend_price),
+        pctChange1d: mapped.pctChange1d,
+        pctChange7d: mapped.pctChange7d,
+      });
+      if (cards.length >= 5) break;
+    }
+    return cards;
+  } catch {
+    return [];
+  }
+}
 
-  const cards =
-    trending.length > 0
-      ? trending
-      : await prisma.card.findMany({
-          where: { imageSmall: { not: null } },
-          orderBy: { priceZar: "desc" },
-          take: 5,
+async function getHomeData() {
+  const liveCards = await hydrateLiveTrending();
+
+  let sets = await prisma.set.findMany({
+    orderBy: { releaseDate: "desc" },
+    take: 3,
+  });
+  if (sets.length < 3) {
+    try {
+      const remote = await fetchSets({ pageSize: 6 });
+      for (const s of remote.data || []) {
+        await prisma.set.upsert({
+          where: { id: s.id },
+          create: {
+            id: s.id,
+            name: s.name,
+            series: s.series || null,
+            releaseDate: s.release_date || null,
+            officialCards: s.official_cards ?? null,
+            totalCards: s.total_cards ?? null,
+            logoUrl: s.logo_url || null,
+            symbolUrl: s.symbol_url || null,
+            setCode: s.set_code || null,
+            lastSyncedAt: new Date(),
+          },
+          update: {
+            name: s.name,
+            logoUrl: s.logo_url || null,
+            totalCards: s.total_cards ?? null,
+            lastSyncedAt: new Date(),
+          },
         });
+      }
+      sets = await prisma.set.findMany({ orderBy: { releaseDate: "desc" }, take: 3 });
+    } catch {
+      /* keep local */
+    }
+  }
+
+  const blog = await prisma.blogPost.findMany({
+    orderBy: { publishedAt: "desc" },
+    take: 2,
+  });
+
+  const dbTrending = await prisma.card.findMany({
+    where: { priceZar: { not: null } },
+    orderBy: [{ pctChange1d: "desc" }, { priceZar: "desc" }],
+    take: 5,
+  });
+
+  const cards = liveCards.length > 0 ? liveCards : dbTrending;
 
   let etbs: Array<{
     id: string;
