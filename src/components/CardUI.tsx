@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatPct, formatZar, rarityBadge } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 
 type CardLike = {
   id: string;
@@ -36,7 +37,7 @@ export function CardTile({
   showRarity?: boolean;
 }) {
   const pct = card.pctChange1d ?? card.pctChange7d;
-  const img = card.imageLarge || card.imageSmall || "/images/card-placeholder.svg";
+  const img = mediaUrl(card.imageSmall || card.imageLarge);
 
   return (
     <Link
@@ -93,9 +94,10 @@ export function TrendRow({
       <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-[#0B0E14]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={card.imageSmall || card.imageLarge || "/images/card-placeholder.svg"}
+          src={mediaUrl(card.imageSmall || card.imageLarge)}
           alt={card.name}
           className="h-full w-full object-cover"
+          loading="lazy"
         />
       </div>
       <div className="min-w-0 flex-1">

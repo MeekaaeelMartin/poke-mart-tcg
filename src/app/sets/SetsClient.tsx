@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 
 export type SetRow = {
   id: string;
@@ -108,7 +109,7 @@ export function SetsClient({ sets }: { sets: SetRow[] }) {
                         {set.logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={set.logoUrl}
+                            src={mediaUrl(set.logoUrl)}
                             alt={set.name}
                             className="absolute inset-0 m-auto max-h-[65%] max-w-[75%] object-contain opacity-90 transition duration-300 group-hover:scale-105"
                           />

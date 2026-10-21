@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchSealed, fetchSealedById, sealedPriceZar } from "@/lib/carddex";
 import { eurToZar, formatPct, formatZar } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -64,11 +65,7 @@ export default async function SealedDetailPage({ params }: Props) {
           <div className="flex aspect-square items-center justify-center rounded-2xl bg-[#0B0E14] p-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={
-                product.image_url ||
-                product.source_image_url ||
-                "/images/card-placeholder.svg"
-              }
+              src={mediaUrl(product.image_url || product.source_image_url)}
               alt={product.name}
               className="max-h-full max-w-full object-contain"
             />
@@ -177,7 +174,7 @@ export default async function SealedDetailPage({ params }: Props) {
                 <div className="flex aspect-square items-center justify-center bg-[#0B0E14] p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={p.image_url || p.source_image_url || "/images/card-placeholder.svg"}
+                    src={mediaUrl(p.image_url || p.source_image_url)}
                     alt={p.name}
                     className="max-h-full max-w-full object-contain"
                   />

@@ -8,6 +8,7 @@ import {
 } from "@/lib/carddex";
 import { eurToZar, formatPct, formatZar, rarityBadge } from "@/lib/format";
 import { prisma } from "@/lib/db";
+import { mediaUrl } from "@/lib/media";
 import { AddToCollection } from "@/components/AddToCollection";
 import { ArrowLeft } from "lucide-react";
 
@@ -16,11 +17,10 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 function cardImage(card: CardDexCard) {
-  return (
+  return mediaUrl(
     card.images?.[0]?.large_url ||
-    card.images?.[0]?.small_url ||
-    card.image_url ||
-    "/images/card-placeholder.svg"
+      card.images?.[0]?.small_url ||
+      card.image_url
   );
 }
 

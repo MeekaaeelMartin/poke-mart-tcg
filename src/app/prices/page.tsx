@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Card } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { ensureDatabase } from "@/lib/ensureDatabase";
 import { SectionHeading, TrendRow } from "@/components/CardUI";
 import { formatPct, formatZar } from "@/lib/format";
 import { ArrowDownRight, ArrowUpRight, BarChart3, Crown, Layers } from "lucide-react";
@@ -18,33 +19,37 @@ async function hydrateLiveMovers() {
     for (const p of res.data || []) {
       if (!p.card_id) continue;
       const mapped = mapPriceToZar(p);
-      await prisma.set.upsert({
-        where: { id: p.set_id || "unknown" },
-        create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
-        update: {},
-      });
-      await prisma.card.upsert({
-        where: { id: p.card_id },
-        create: {
-          id: p.card_id,
-          setId: p.set_id || "unknown",
-          name: p.card_name || p.card_id,
-          number: p.number || null,
-          rarity: p.rarity || null,
-          imageThumb: p.image_thumb || null,
-          imageSmall: p.image_small || null,
-          imageLarge: p.image_large || null,
-          setName: p.set_id || null,
-          ...mapped,
-          lastSyncedAt: new Date(),
-        },
-        update: {
-          ...mapped,
-          imageSmall: p.image_small || undefined,
-          imageLarge: p.image_large || undefined,
-          lastSyncedAt: new Date(),
-        },
-      });
+      try {
+        await prisma.set.upsert({
+          where: { id: p.set_id || "unknown" },
+          create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
+          update: {},
+        });
+        await prisma.card.upsert({
+          where: { id: p.card_id },
+          create: {
+            id: p.card_id,
+            setId: p.set_id || "unknown",
+            name: p.card_name || p.card_id,
+            number: p.number || null,
+            rarity: p.rarity || null,
+            imageThumb: p.image_thumb || null,
+            imageSmall: p.image_small || null,
+            imageLarge: p.image_large || null,
+            setName: p.set_id || null,
+            ...mapped,
+            lastSyncedAt: new Date(),
+          },
+          update: {
+            ...mapped,
+            imageSmall: p.image_small || undefined,
+            imageLarge: p.image_large || undefined,
+            lastSyncedAt: new Date(),
+          },
+        });
+      } catch {
+        /* ignore per-row persistence */
+      }
     }
   } catch {
     /* use local cache */
@@ -52,29 +57,71 @@ async function hydrateLiveMovers() {
 }
 
 async function getMarketData() {
+  await ensureDatabase();
   await hydrateLiveMovers();
 
-  const [totalTracked, avgAgg, topCard, trendingUp, trendingDown] = await Promise.all([
-    prisma.card.count({ where: { priceZar: { not: null } } }),
-    prisma.card.aggregate({
-      _avg: { pctChange1d: true },
-      where: { pctChange1d: { not: null } },
-    }),
-    prisma.card.findFirst({
-      where: { priceZar: { not: null } },
-      orderBy: { priceZar: "desc" },
-    }),
-    prisma.card.findMany({
-      where: { pctChange1d: { not: null }, priceZar: { not: null } },
-      orderBy: { pctChange1d: "desc" },
-      take: 8,
-    }),
-    prisma.card.findMany({
-      where: { pctChange1d: { not: null }, priceZar: { not: null } },
-      orderBy: { pctChange1d: "asc" },
-      take: 8,
-    }),
-  ]);
+  let totalTracked = 0;
+  let avgShift = 0;
+  let topCard: Card | null = null;
+  let trendingUp: Card[] = [];
+  let trendingDown: Card[] = [];
+
+  try {
+    const [tracked, avgAgg, top, up, down] = await Promise.all([
+      prisma.card.count({ where: { priceZar: { not: null } } }),
+      prisma.card.aggregate({
+        _avg: { pctChange1d: true },
+        where: { pctChange1d: { not: null } },
+      }),
+      prisma.card.findFirst({
+        where: { priceZar: { not: null } },
+        orderBy: { priceZar: "desc" },
+      }),
+      prisma.card.findMany({
+        where: { pctChange1d: { not: null }, priceZar: { not: null } },
+        orderBy: { pctChange1d: "desc" },
+        take: 8,
+      }),
+      prisma.card.findMany({
+        where: { pctChange1d: { not: null }, priceZar: { not: null } },
+        orderBy: { pctChange1d: "asc" },
+        take: 8,
+      }),
+    ]);
+    totalTracked = tracked;
+    avgShift = avgAgg._avg.pctChange1d ?? 0;
+    topCard = top;
+    trendingUp = up;
+    trendingDown = down;
+  } catch {
+    /* empty market */
+  }
+
+  // Live fallback if DB empty
+  if (trendingUp.length === 0) {
+    try {
+      const res = await fetchPriceTrends({ pageSize: 16 });
+      trendingUp = (res.data || []).slice(0, 8).map((p) => {
+        const mapped = mapPriceToZar(p);
+        return {
+          id: p.card_id,
+          name: p.card_name || p.card_id,
+          number: p.number || null,
+          setName: p.set_id || null,
+          imageSmall: p.image_small || null,
+          imageLarge: p.image_large || null,
+          priceZar: mapped.priceZar,
+          pctChange1d: mapped.pctChange1d,
+          pctChange7d: mapped.pctChange7d,
+        } as Card;
+      });
+      trendingDown = [...trendingUp].reverse();
+      totalTracked = Math.max(totalTracked, trendingUp.length);
+      topCard = trendingUp[0] || null;
+    } catch {
+      /* keep empty */
+    }
+  }
 
   let sealed: Array<{
     id: string;
@@ -98,7 +145,7 @@ async function getMarketData() {
 
   return {
     totalTracked,
-    avgShift: avgAgg._avg.pctChange1d ?? 0,
+    avgShift,
     topCard,
     trendingUp,
     trendingDown,

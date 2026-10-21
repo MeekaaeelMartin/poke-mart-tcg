@@ -9,6 +9,7 @@ import {
   type CardDexCard,
 } from "@/lib/carddex";
 import { eurToZar, formatZar } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 import { CardTile } from "@/components/CardUI";
 import { prisma } from "@/lib/db";
 import { ArrowLeft } from "lucide-react";
@@ -124,7 +125,7 @@ export default async function SetDetailPage({ params }: Props) {
           <div className="flex aspect-square items-center justify-center rounded-2xl bg-[#0B0E14] p-6">
             {set.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={set.logo_url} alt={set.name} className="max-h-full max-w-full object-contain" />
+              <img src={mediaUrl(set.logo_url)} alt={set.name} className="max-h-full max-w-full object-contain" />
             ) : (
               <span className="text-3xl font-bold text-white/20">
                 {set.set_code || set.id.slice(0, 4).toUpperCase()}
@@ -172,7 +173,7 @@ export default async function SetDetailPage({ params }: Props) {
               </Link>
               {set.symbol_url && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={set.symbol_url} alt="" className="h-9 w-9 object-contain opacity-80" />
+                <img src={mediaUrl(set.symbol_url)} alt="" className="h-9 w-9 object-contain opacity-80" />
               )}
             </div>
           </div>
@@ -195,7 +196,7 @@ export default async function SetDetailPage({ params }: Props) {
                 <div className="flex aspect-square items-center justify-center bg-[#0B0E14] p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={p.image_url || p.source_image_url || "/images/card-placeholder.svg"}
+                    src={mediaUrl(p.image_url || p.source_image_url)}
                     alt={p.name}
                     className="max-h-full max-w-full object-contain"
                   />

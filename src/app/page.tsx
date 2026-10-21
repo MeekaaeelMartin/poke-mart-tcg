@@ -12,6 +12,8 @@ import {
   mapPriceToZar,
   sealedPriceZar,
 } from "@/lib/carddex";
+import { mediaUrl } from "@/lib/media";
+import { ensureDatabase } from "@/lib/ensureDatabase";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +77,7 @@ async function hydrateLiveTrending() {
 }
 
 async function getHomeData() {
+  await ensureDatabase();
   const liveCards = await hydrateLiveTrending();
 
   let sets: Array<{
@@ -232,11 +235,11 @@ export default async function HomePage() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={
-                    ("imageLarge" in c && c.imageLarge) ||
+                  src={mediaUrl(
                     ("imageSmall" in c && c.imageSmall) ||
-                    "https://images.carddex.dev/cards/base1/base1-4--sm.webp"
-                  }
+                      ("imageLarge" in c && c.imageLarge) ||
+                      "https://images.carddex.dev/cards/base1/base1-4--sm.webp"
+                  )}
                   alt={"name" in c ? String(c.name) : "Pokemon card"}
                   className="h-full w-full object-cover"
                 />
@@ -288,7 +291,7 @@ export default async function HomePage() {
                 {s.logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={s.logoUrl}
+                    src={mediaUrl(s.logoUrl)}
                     alt={s.name}
                     className="absolute inset-0 m-auto max-h-[70%] max-w-[70%] object-contain opacity-90 transition group-hover:scale-105"
                   />
@@ -334,7 +337,7 @@ export default async function HomePage() {
                 <div className="flex aspect-square items-center justify-center rounded-xl bg-[#0B0E14] p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={etb.img || "/images/card-placeholder.svg"}
+                    src={mediaUrl(etb.img)}
                     alt={etb.name}
                     className="max-h-full max-w-full object-contain"
                   />
@@ -474,7 +477,7 @@ export default async function HomePage() {
               <div className="h-28 w-36 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#1a1f2e] to-[#0B0E14]">
                 {post.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={mediaUrl(post.imageUrl)} alt="" className="h-full w-full object-cover" />
                 )}
               </div>
               <div className="flex flex-col justify-center py-1">

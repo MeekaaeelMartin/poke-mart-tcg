@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 
 export type BlogPostItem = {
   id: string;
@@ -60,11 +61,12 @@ function formatDate(iso: string) {
 }
 
 function PostImage({ src, alt }: { src?: string | null; alt: string }) {
+  const resolved = src ? mediaUrl(src) : null;
   return (
     <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#1a1f2e] to-[#0B0E14]">
-      {src ? (
+      {resolved ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={alt} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
+        <img src={resolved} alt={alt} className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
       ) : (
         <div className="flex h-full items-center justify-center">
           <span className="text-4xl opacity-20">⚡</span>

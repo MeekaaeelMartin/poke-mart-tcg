@@ -276,6 +276,9 @@ export async function searchCards(opts: {
   page?: number;
   pageSize?: number;
 }) {
+  const { ensureDatabase } = await import("./ensureDatabase");
+  await ensureDatabase();
+
   const page = opts.page || 1;
   const pageSize = opts.pageSize || 12;
   const where: Record<string, unknown> = {};
@@ -302,7 +305,12 @@ export async function searchCards(opts: {
   if (opts.sort === "price_asc") orderBy = { priceZar: "asc" };
   if (opts.sort === "name") orderBy = { name: "asc" };
 
-  const localCount = await prisma.card.count();
+  let localCount = 0;
+  try {
+    localCount = await prisma.card.count();
+  } catch {
+    localCount = 0;
+  }
 
   // If DB is empty / thin, hydrate from CardDex for this query
   if (localCount < 20 || (opts.q && localCount > 0)) {
@@ -343,23 +351,67 @@ export async function searchCards(opts: {
     }
   }
 
-  const [total, cards] = await Promise.all([
-    prisma.card.count({ where }),
-    prisma.card.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-  ]);
+  try {
+    const [total, cards] = await Promise.all([
+      prisma.card.count({ where }),
+      prisma.card.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    if (cards.length > 0 || !opts.q) {
+      return {
+        cards,
+        meta: {
+          total,
+          page,
+          pageSize,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        },
+      };
+    }
+  } catch {
+    /* fall through to live API */
+  }
+
+  // Live-only fallback (no usable DB rows)
+  const remote = await fetchCards({
+    q: opts.q || undefined,
+    set: opts.set,
+    type: opts.type,
+    rarity: opts.rarity,
+    page,
+    pageSize,
+    include: "images,prices",
+  });
+  const cards = (remote.data || []).map((c) => {
+    const price = priceFromCard(c);
+    return {
+      id: c.id,
+      setId: c.set_id,
+      name: c.name,
+      number: c.number || null,
+      rarity: c.rarity || null,
+      setName: c.set_name || null,
+      imageSmall: c.images?.[0]?.small_url || c.image_url || null,
+      imageLarge: c.images?.[0]?.large_url || null,
+      priceZar: price?.priceZar ?? null,
+      pctChange1d: price?.pctChange1d ?? null,
+      pctChange7d: price?.pctChange7d ?? null,
+      types: c.types ? JSON.stringify(c.types) : null,
+    };
+  });
 
   return {
     cards,
-    meta: {
-      total,
+    meta: remote.meta || {
+      total: cards.length,
       page,
       pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages: 1,
     },
   };
 }

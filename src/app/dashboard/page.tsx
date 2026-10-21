@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatZar, formatPct } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 import { Camera, Search, Upload } from "lucide-react";
 
 type PortfolioPayload = {
@@ -249,7 +250,7 @@ export default function DashboardPage() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={c.imageSmall || "/images/card-placeholder.svg"}
+                          src={mediaUrl(c.imageSmall)}
                           alt=""
                           className="h-10 w-8 rounded object-cover"
                         />
@@ -317,7 +318,7 @@ export default function DashboardPage() {
                         <div className="aspect-[3/4] bg-[#0B0E14] p-2">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={item.card.imageSmall || "/images/card-placeholder.svg"}
+                            src={mediaUrl(item.card.imageSmall)}
                             alt={item.card.name}
                             className="h-full w-full object-contain"
                           />
@@ -379,7 +380,7 @@ export default function DashboardPage() {
                 <li key={w.id} className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={w.card.imageThumb || w.card.imageSmall || "/images/card-placeholder.svg"}
+                    src={mediaUrl(w.card.imageThumb || w.card.imageSmall)}
                     alt=""
                     className="h-10 w-8 rounded object-cover"
                   />
