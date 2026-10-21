@@ -350,10 +350,10 @@ export async function searchCards(opts: {
   await ensureDatabase();
 
   const page = Math.max(1, opts.page || 1);
-  const pageSize = Math.min(50, Math.max(1, opts.pageSize || 24));
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize || 48));
   const hasPriceFilter = opts.minPrice != null || opts.maxPrice != null;
 
-  // Price-range filters need ZAR rows in SQLite — hydrate matching CardDex pages first.
+  // Price-range filters need ZAR rows in SQLite — hydrate EVERY matching CardDex page.
   if (hasPriceFilter && (opts.q || opts.set || opts.type || opts.rarity)) {
     try {
       await hydrateCardDexQuery(
@@ -363,7 +363,7 @@ export async function searchCards(opts: {
           type: opts.type,
           rarity: opts.rarity,
         },
-        8
+        200
       );
     } catch {
       /* continue with whatever is cached */
@@ -467,7 +467,7 @@ export async function searchCards(opts: {
   }
 }
 
-/** Pull several CardDex pages into SQLite so ZAR filters / offline browse work. */
+/** Pull every CardDex page for a query into SQLite (used for ZAR price filters). */
 async function hydrateCardDexQuery(
   params: {
     name?: string;
@@ -475,7 +475,7 @@ async function hydrateCardDexQuery(
     type?: string;
     rarity?: string;
   },
-  maxPages = 8
+  maxPages = 200
 ) {
   let page = 1;
   let totalPages = 1;
@@ -483,7 +483,7 @@ async function hydrateCardDexQuery(
     const remote = await fetchCards({
       ...params,
       page,
-      pageSize: 50,
+      pageSize: 100,
       include: "images,prices",
     });
     for (const c of remote.data || []) {
@@ -495,6 +495,7 @@ async function hydrateCardDexQuery(
       }
     }
     totalPages = remote.meta?.totalPages || 1;
+    if (!(remote.data || []).length) break;
     page += 1;
   } while (page <= totalPages && page <= maxPages);
 }

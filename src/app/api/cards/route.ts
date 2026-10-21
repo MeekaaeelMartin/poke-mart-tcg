@@ -21,14 +21,14 @@ export async function GET(req: NextRequest) {
       maxPrice: sp.get("max") ? Number(sp.get("max")) : undefined,
       sort: sp.get("sort") || "price_desc",
       page: Number(sp.get("page") || 1),
-      pageSize: Number(sp.get("pageSize") || 24),
+      pageSize: Number(sp.get("pageSize") || 48),
     });
     return NextResponse.json(result);
   } catch (error) {
     // Absolute fallback: live CardDex only (no DB)
     try {
       const page = Number(sp.get("page") || 1);
-      const pageSize = Number(sp.get("pageSize") || 24);
+      const pageSize = Number(sp.get("pageSize") || 48);
       const remote = await fetchCards({
         // Prefer `name` so images/prices embeds are returned
         name: sp.get("q") || undefined,
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       const message = error instanceof Error ? error.message : "cards failed";
       return NextResponse.json(
-        { cards: [], meta: { total: 0, page: 1, pageSize: 24, totalPages: 1 }, error: message },
+        { cards: [], meta: { total: 0, page: 1, pageSize: 48, totalPages: 1 }, error: message },
         { status: 200 }
       );
     }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Loader2, SlidersHorizontal } from "lucide-react";
+import { Loader2, SlidersHorizontal } from "lucide-react";
 import { CardTile, EmptyState } from "@/components/CardUI";
 import { cn } from "@/lib/format";
 
@@ -126,9 +126,15 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
   const [page, setPage] = useState(initialPage);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [data, setData] = useState<ApiResponse | null>(null);
+  const [cards, setCards] = useState<CardResult[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
+
+  const PAGE_SIZE = 48;
 
   const skipQPageReset = useRef(true);
   useEffect(() => {
@@ -136,13 +142,15 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
     return () => clearTimeout(t);
   }, [q]);
 
+  // Any filter / search change restarts from page 1 and replaces the list
   useEffect(() => {
     if (skipQPageReset.current) {
       skipQPageReset.current = false;
       return;
     }
     setPage(1);
-  }, [debouncedQ]);
+    setCards([]);
+  }, [debouncedQ, selectedSets, selectedTypes, selectedRarities, minPrice, maxPrice, sort]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -170,9 +178,16 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const id = ++requestId.current;
+    const isFirstPage = page === 1;
 
     async function load() {
-      setLoading(true);
+      if (isFirstPage) {
+        setLoading(true);
+        setCards([]);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
 
       const params = new URLSearchParams();
@@ -184,7 +199,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
       if (maxPrice.trim()) params.set("max", maxPrice.trim());
       params.set("sort", sort);
       params.set("page", String(page));
-      params.set("pageSize", "24");
+      params.set("pageSize", String(PAGE_SIZE));
 
       try {
         const res = await fetch(`/api/cards?${params.toString()}`, {
@@ -192,13 +207,35 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
         });
         if (!res.ok) throw new Error("Failed to load cards");
         const json: ApiResponse = await res.json();
-        setData(json);
+        if (id !== requestId.current) return;
+
+        setTotal(json.meta?.total ?? json.cards.length);
+        setTotalPages(json.meta?.totalPages ?? 1);
+
+        const needsClientFilter =
+          selectedSets.length > 1 ||
+          selectedTypes.length > 1 ||
+          selectedRarities.length > 1;
+        const nextBatch = needsClientFilter
+          ? json.cards.filter((card) =>
+              matchesClientFilters(card, selectedSets, selectedTypes, selectedRarities)
+            )
+          : json.cards;
+
+        setCards((prev) => {
+          if (isFirstPage) return nextBatch;
+          const seen = new Set(prev.map((c) => c.id));
+          return [...prev, ...nextBatch.filter((c) => !seen.has(c.id))];
+        });
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
           setError("Could not load cards. Try again shortly.");
         }
       } finally {
-        setLoading(false);
+        if (id === requestId.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     }
 
@@ -206,20 +243,8 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
     return () => controller.abort();
   }, [debouncedQ, selectedSets, selectedTypes, selectedRarities, minPrice, maxPrice, sort, page]);
 
-  const cards = useMemo(() => {
-    if (!data?.cards) return [];
-    const needsClientFilter =
-      selectedSets.length > 1 ||
-      selectedTypes.length > 1 ||
-      selectedRarities.length > 1;
-    if (!needsClientFilter) return data.cards;
-    return data.cards.filter((card) =>
-      matchesClientFilters(card, selectedSets, selectedTypes, selectedRarities)
-    );
-  }, [data, selectedSets, selectedTypes, selectedRarities]);
-
-  const totalPages = data?.meta.totalPages ?? 1;
-  const total = data?.meta.total ?? 0;
+  const hasMore = page < totalPages;
+  const shown = cards.length;
 
   function resetPage() {
     setPage(1);
@@ -227,6 +252,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
 
   function clearFilters() {
     setQ("");
+    setDebouncedQ("");
     setSelectedSets([]);
     setSelectedTypes([]);
     setSelectedRarities([]);
@@ -234,6 +260,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
     setMaxPrice("");
     setSort("price_desc");
     setPage(1);
+    setCards([]);
   }
 
   const hasFilters =
@@ -391,8 +418,8 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
           Poke Card Database
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-          Browse the full CardDex catalogue — filter by expansion, type, rarity, and
-          ZAR price. Free for all trainers.
+          Live CardDex search for every print — Pikachu, Charizard, Lugia, any name.
+          Load more until every matching card is on screen.
         </p>
       </div>
 
@@ -448,13 +475,17 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
         <div className={cn("hidden lg:block", sidebarOpen && "!block")}>{sidebar}</div>
 
         <div>
-          <div className="mb-4 flex items-center justify-between text-sm text-zinc-500">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
             <span>
-              {loading ? "Loading…" : `${total.toLocaleString()} cards found`}
+              {loading
+                ? "Searching CardDex…"
+                : total > 0
+                  ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} cards from CardDex`
+                  : "No cards found"}
             </span>
             {!loading && totalPages > 1 && (
               <span>
-                Page {page} of {totalPages}
+                Batch {page} / {totalPages}
               </span>
             )}
           </div>
@@ -462,12 +493,12 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
           {loading ? (
             <div className="flex items-center justify-center py-24 text-zinc-400">
               <Loader2 className="mr-2 h-5 w-5 animate-spin text-[#FFD700]" />
-              Loading cards…
+              Loading every matching print…
             </div>
           ) : error ? (
             <EmptyState message={error} />
           ) : cards.length === 0 ? (
-            <EmptyState message="No cards match your filters. Try adjusting your search or run npm run sync to load data." />
+            <EmptyState message="No cards match your filters. Try another name — results come live from CardDex." />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {cards.map((card) => (
@@ -476,30 +507,33 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
             </div>
           )}
 
-          {!loading && totalPages > 1 && (
-            <div className="mt-10 flex items-center justify-center gap-3">
+          {!loading && hasMore && (
+            <div className="mt-10 flex flex-col items-center gap-3">
               <button
                 type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="flex items-center gap-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white transition hover:border-[#FFD700]/40 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-                Previous
-              </button>
-              <span className="text-sm text-zinc-400">
-                {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
+                disabled={loadingMore}
                 onClick={() => setPage((p) => p + 1)}
-                className="flex items-center gap-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white transition hover:border-[#FFD700]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#FFD700] px-6 py-3 text-sm font-semibold text-[#0B0E14] transition hover:brightness-105 disabled:opacity-60"
               >
-                Next
-                <ChevronRight size={16} />
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading more…
+                  </>
+                ) : (
+                  `Load more cards (${Math.min(PAGE_SIZE, total - shown)} remaining of ${total.toLocaleString()})`
+                )}
               </button>
+              <p className="text-xs text-zinc-500">
+                Keep loading until all {total.toLocaleString()} CardDex matches are listed.
+              </p>
             </div>
+          )}
+
+          {!loading && !hasMore && total > 0 && (
+            <p className="mt-10 text-center text-sm text-zinc-500">
+              All {total.toLocaleString()} matching cards loaded from CardDex.
+            </p>
           )}
         </div>
       </div>
