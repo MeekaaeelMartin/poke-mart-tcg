@@ -15,7 +15,14 @@ type CardLike = {
   pctChange7d?: number | null;
 };
 
-export function PriceBadge({ pct }: { pct?: number | null }) {
+export function PriceBadge({ pct, hasPrice }: { pct?: number | null; hasPrice?: boolean }) {
+  if (hasPrice === false) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-0.5 text-xs font-semibold text-zinc-500">
+        —
+      </span>
+    );
+  }
   const value = pct ?? 0;
   const up = value >= 0;
   return (
@@ -70,8 +77,14 @@ export function CardTile({
         </h3>
         <p className="truncate text-xs text-zinc-500">{card.setName || "Unknown set"}</p>
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-sm font-bold text-white">{formatZar(card.priceZar)}</span>
-          <PriceBadge pct={pct} />
+          <span
+            className={`text-sm font-bold ${
+              card.priceZar == null ? "text-zinc-500" : "text-white"
+            }`}
+          >
+            {formatZar(card.priceZar)}
+          </span>
+          <PriceBadge pct={pct} hasPrice={card.priceZar != null} />
         </div>
       </div>
     </Link>

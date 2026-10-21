@@ -7,11 +7,11 @@ export function mediaUrl(url?: string | null): string {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
-    const allowed =
-      host === "images.carddex.dev" ||
-      host.endsWith(".carddex.dev") ||
-      host === "product-images.s3.cardmarket.com";
-    if (!allowed) return "/images/card-placeholder.svg";
+    if (!isAllowedMediaHost(host)) return "/images/card-placeholder.svg";
+    // Unsplash / local-friendly CDNs can be hotlinked; CardDex needs the proxy on Hostinger.
+    if (host === "images.unsplash.com" || host.endsWith(".unsplash.com")) {
+      return parsed.toString();
+    }
     return `/api/media?src=${encodeURIComponent(parsed.toString())}`;
   } catch {
     return "/images/card-placeholder.svg";
@@ -23,6 +23,8 @@ export function isAllowedMediaHost(hostname: string): boolean {
   return (
     host === "images.carddex.dev" ||
     host.endsWith(".carddex.dev") ||
-    host === "product-images.s3.cardmarket.com"
+    host === "product-images.s3.cardmarket.com" ||
+    host === "images.unsplash.com" ||
+    host.endsWith(".unsplash.com")
   );
 }

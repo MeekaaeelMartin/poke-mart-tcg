@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="875" viewBox="0 0 1400 875">
+  <defs>
+    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0B0E14"/>
+      <stop offset="50%" stop-color="#1a2744"/>
+      <stop offset="100%" stop-color="#3b1d12"/>
+    </linearGradient>
+    <radialGradient id="ember" cx="20%" cy="80%" r="55%">
+      <stop offset="0%" stop-color="#ff6b2c" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ff6b2c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1400" height="875" fill="url(#g)"/>
+  <rect width="1400" height="875" fill="url(#ember)"/>
+  <circle cx="1100" cy="280" r="160" fill="#FFD700" opacity="0.12"/>
+  <circle cx="1100" cy="280" r="90" fill="none" stroke="#FFD700" stroke-width="8" opacity="0.35"/>
+  <text x="80" y="780" fill="#ffffff" font-family="Georgia, serif" font-size="52" font-weight="700">OBSIDIAN FLAMES</text>
+  <text x="80" y="830" fill="#FFD700" opacity="0.85" font-family="system-ui,sans-serif" font-size="22">Chase singles · ZAR value map</text>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="875" viewBox="0 0 1400 875">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0B0E14"/>
+      <stop offset="50%" stop-color="#14261a"/>
+      <stop offset="100%" stop-color="#1a1808"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="875" fill="url(#g)"/>
+  <path d="M160 640 L420 480 L640 540 L900 300 L1180 360" fill="none" stroke="#FFD700" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="1180" cy="360" r="14" fill="#FFD700"/>
+  <text x="80" y="780" fill="#ffffff" font-family="Georgia, serif" font-size="48" font-weight="700">151 OUTLOOK</text>
+  <text x="80" y="830" fill="#FFD700" font-family="system-ui,sans-serif" font-size="22">Long-term ZAR investment thesis</text>
+</svg>

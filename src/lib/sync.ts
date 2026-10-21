@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import {
   fetchCardById,
   fetchCards,
+  fetchCardPrices,
   fetchPriceTrends,
   fetchSets,
   fetchTopPrices,
@@ -77,7 +78,20 @@ async function upsertCardFromDex(c: CardDexCard, price?: Partial<ReturnType<type
 
 async function ensureSetExists(setId: string, setName?: string | null) {
   const existing = await prisma.set.findUnique({ where: { id: setId } });
-  if (existing) return;
+  if (existing) {
+    // Upgrade stub rows (name === id) when we learn a real set name
+    if (
+      setName &&
+      setName !== setId &&
+      (!existing.name || existing.name.toLowerCase() === existing.id.toLowerCase())
+    ) {
+      await prisma.set.update({
+        where: { id: setId },
+        data: { name: setName, lastSyncedAt: new Date() },
+      });
+    }
+    return;
+  }
   await prisma.set.create({
     data: {
       id: setId,
@@ -85,6 +99,31 @@ async function ensureSetExists(setId: string, setName?: string | null) {
       lastSyncedAt: new Date(),
     },
   });
+}
+
+async function backfillMissingPrices<T extends { id: string; priceZar?: number | null }>(
+  cards: T[]
+): Promise<T[]> {
+  const missing = cards.filter((c) => c.priceZar == null).slice(0, 10);
+  await Promise.all(
+    missing.map(async (card) => {
+      try {
+        const res = await fetchCardPrices(card.id);
+        const row = Array.isArray(res.data) ? res.data[0] : res.data;
+        if (!row) return;
+        const mapped = mapPriceToZar(row);
+        if (mapped.priceZar == null) return;
+        await prisma.card.update({
+          where: { id: card.id },
+          data: { ...mapped, lastSyncedAt: new Date() },
+        });
+        Object.assign(card, mapped);
+      } catch {
+        /* CardDex has no market row for many older commons */
+      }
+    })
+  );
+  return cards;
 }
 
 async function upsertFromPriceRow(p: CardDexPrice) {
@@ -363,8 +402,9 @@ export async function searchCards(opts: {
     ]);
 
     if (cards.length > 0 || !opts.q) {
+      const enriched = await backfillMissingPrices(cards);
       return {
-        cards,
+        cards: enriched,
         meta: {
           total,
           page,
@@ -405,8 +445,10 @@ export async function searchCards(opts: {
     };
   });
 
+  const enriched = await backfillMissingPrices(cards);
+
   return {
-    cards,
+    cards: enriched,
     meta: remote.meta || {
       total: cards.length,
       page,

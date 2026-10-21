@@ -6,7 +6,7 @@ export function eurToZar(eur: number | null | undefined): number | null {
 }
 
 export function formatZar(amount: number | null | undefined): string {
-  if (amount == null || Number.isNaN(amount)) return "R —";
+  if (amount == null || Number.isNaN(amount)) return "Unlisted";
   return `R ${amount.toLocaleString("en-ZA", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

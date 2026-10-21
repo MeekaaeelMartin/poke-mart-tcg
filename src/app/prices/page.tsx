@@ -20,11 +20,14 @@ async function hydrateLiveMovers() {
       if (!p.card_id) continue;
       const mapped = mapPriceToZar(p);
       try {
-        await prisma.set.upsert({
-          where: { id: p.set_id || "unknown" },
-          create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
-          update: {},
-        });
+        if (p.set_id) {
+          const existingSet = await prisma.set.findUnique({ where: { id: p.set_id } });
+          if (!existingSet) {
+            await prisma.set.create({
+              data: { id: p.set_id, name: p.set_id, lastSyncedAt: new Date() },
+            });
+          }
+        }
         await prisma.card.upsert({
           where: { id: p.card_id },
           create: {

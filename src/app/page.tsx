@@ -7,13 +7,14 @@ import { HomeSearch } from "@/components/HomeSearch";
 import {
   fetchPriceTrends,
   fetchSealed,
-  fetchSets,
   fetchTopPrices,
   mapPriceToZar,
   sealedPriceZar,
 } from "@/lib/carddex";
 import { mediaUrl } from "@/lib/media";
 import { ensureDatabase } from "@/lib/ensureDatabase";
+import { loadFeaturedSets } from "@/lib/setsCatalog";
+import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +31,17 @@ async function hydrateLiveTrending() {
       if (!p.card_id || seen.has(p.card_id)) continue;
       seen.add(p.card_id);
       const mapped = mapPriceToZar(p);
-      // Best-effort persist — never block the homepage if SQLite/Prisma fails on Hostinger
+      // Best-effort persist — never block the homepage if SQLite/Prisma fails on Hostinger.
+      // Only create a minimal set row if missing — never overwrite real catalog names/logos.
       try {
-        await prisma.set.upsert({
-          where: { id: p.set_id || "unknown" },
-          create: { id: p.set_id || "unknown", name: p.set_id || "Unknown" },
-          update: {},
-        });
+        if (p.set_id) {
+          const existingSet = await prisma.set.findUnique({ where: { id: p.set_id } });
+          if (!existingSet) {
+            await prisma.set.create({
+              data: { id: p.set_id, name: p.set_id, lastSyncedAt: new Date() },
+            });
+          }
+        }
         await prisma.card.upsert({
           where: { id: p.card_id },
           create: {
@@ -78,8 +83,10 @@ async function hydrateLiveTrending() {
 
 async function getHomeData() {
   await ensureDatabase();
+  await ensureBlogPosts();
   const liveCards = await hydrateLiveTrending();
 
+  // Always prefer live CardDex catalog — stub DB rows (name === id, no logo) caused blank featured tiles.
   let sets: Array<{
     id: string;
     name: string;
@@ -88,54 +95,9 @@ async function getHomeData() {
     logoUrl: string | null;
   }> = [];
   try {
-    sets = await prisma.set.findMany({
-      orderBy: { releaseDate: "desc" },
-      take: 3,
-    });
+    sets = await loadFeaturedSets(3);
   } catch {
     sets = [];
-  }
-
-  if (sets.length < 3) {
-    try {
-      const remote = await fetchSets({ pageSize: 6 });
-      sets = (remote.data || []).slice(0, 3).map((s) => ({
-        id: s.id,
-        name: s.name,
-        setCode: s.set_code || null,
-        totalCards: s.total_cards ?? null,
-        logoUrl: s.logo_url || null,
-      }));
-      for (const s of remote.data || []) {
-        try {
-          await prisma.set.upsert({
-            where: { id: s.id },
-            create: {
-              id: s.id,
-              name: s.name,
-              series: s.series || null,
-              releaseDate: s.release_date || null,
-              officialCards: s.official_cards ?? null,
-              totalCards: s.total_cards ?? null,
-              logoUrl: s.logo_url || null,
-              symbolUrl: s.symbol_url || null,
-              setCode: s.set_code || null,
-              lastSyncedAt: new Date(),
-            },
-            update: {
-              name: s.name,
-              logoUrl: s.logo_url || null,
-              totalCards: s.total_cards ?? null,
-              lastSyncedAt: new Date(),
-            },
-          });
-        } catch {
-          /* ignore */
-        }
-      }
-    } catch {
-      /* keep whatever we have */
-    }
   }
 
   let blog: Array<{
@@ -277,9 +239,27 @@ export default async function HomePage() {
           {(sets.length
             ? sets
             : [
-                { id: "sv3", name: "Obsidian Flames", setCode: "SV3", totalCards: 230, logoUrl: null },
-                { id: "sv2", name: "Paldea Evolved", setCode: "SV2", totalCards: 279, logoUrl: null },
-                { id: "sv3pt5", name: "151 Special", setCode: "SV3.5", totalCards: 207, logoUrl: null },
+                {
+                  id: "sv3",
+                  name: "Obsidian Flames",
+                  setCode: "SV3",
+                  totalCards: 230,
+                  logoUrl: "https://images.carddex.dev/sets/sv3/logo.png",
+                },
+                {
+                  id: "sv2",
+                  name: "Paldea Evolved",
+                  setCode: "SV2",
+                  totalCards: 279,
+                  logoUrl: "https://images.carddex.dev/sets/sv2/logo.png",
+                },
+                {
+                  id: "sv3pt5",
+                  name: "151 Special",
+                  setCode: "SV3.5",
+                  totalCards: 207,
+                  logoUrl: "https://images.carddex.dev/sets/sv3pt5/logo.png",
+                },
               ]
           ).map((s) => (
             <Link

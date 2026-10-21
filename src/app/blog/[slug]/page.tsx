@@ -3,7 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Clock } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { BLOG_COVERS } from "@/lib/blogPosts";
+import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
+import { ensureDatabase } from "@/lib/ensureDatabase";
 import { cn } from "@/lib/format";
+import { mediaUrl } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +56,7 @@ Watch local Facebook groups and Takealot listings alongside Poke Mart price data
     author: "Thabo M.",
     authorRole: "Market Analyst",
     readMinutes: 8,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.sealed,
     publishedAt: new Date("2025-09-15"),
   },
   "obsidian-flames-review": {
@@ -72,7 +76,7 @@ Use Poke Mart's free search to compare ZAR prices before you buy — our nightly
     author: "Sarah K.",
     authorRole: "Set Reviewer",
     readMinutes: 6,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.chase,
     publishedAt: new Date("2025-09-10"),
   },
   "grading-guide": {
@@ -96,7 +100,7 @@ Budget R350–R600 per card all-in (grading fee + shipping share) for economy ti
     author: "Devon K.",
     authorRole: "Competitive Player",
     readMinutes: 10,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.grading,
     publishedAt: new Date("2025-09-05"),
   },
   "carddex-sync-news": {
@@ -116,7 +120,7 @@ If you self-host, run \`npm run sync\` to trigger an on-demand update during dev
     author: "Poke Mart Team",
     authorRole: "Editorial",
     readMinutes: 4,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.sync,
     publishedAt: new Date("2025-08-28"),
   },
   "psa-vs-cgc-sa": {
@@ -130,7 +134,7 @@ Rule of thumb: submit cards you plan to sell within 6–12 months to PSA if the 
     author: "Alex B.",
     authorRole: "Pro Collector",
     readMinutes: 7,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.psa,
     publishedAt: new Date("2025-08-20"),
   },
   "151-investment-outlook": {
@@ -146,13 +150,15 @@ This is not financial advice — treat Pokemon cards as collectibles first, inve
     author: "Thabo M.",
     authorRole: "Market Analyst",
     readMinutes: 9,
-    imageUrl: null,
+    imageUrl: BLOG_COVERS.investment,
     publishedAt: new Date("2025-08-12"),
   },
 };
 
 async function getPost(slug: string) {
   try {
+    await ensureDatabase();
+    await ensureBlogPosts();
     const post = await prisma.blogPost.findUnique({ where: { slug } });
     if (post) return post;
   } catch {
@@ -244,7 +250,7 @@ export default async function BlogArticlePage({ params }: Props) {
       {post.imageUrl && (
         <div className="mx-auto mt-8 max-w-4xl overflow-hidden rounded-2xl border border-white/8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.imageUrl} alt={post.title} className="w-full object-cover" />
+          <img src={mediaUrl(post.imageUrl)} alt={post.title} className="w-full object-cover" />
         </div>
       )}
 

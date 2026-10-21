@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="875" viewBox="0 0 1400 875">
+  <defs>
+    <linearGradient id="g" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1030"/>
+      <stop offset="100%" stop-color="#0B0E14"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="875" fill="url(#g)"/>
+  <rect x="200" y="180" width="220" height="320" rx="10" fill="#2a1f45" stroke="#a855f7" stroke-width="2" transform="rotate(-8 310 340)"/>
+  <rect x="520" y="150" width="220" height="320" rx="10" fill="#241a3a" stroke="#c084fc" stroke-width="2"/>
+  <rect x="840" y="190" width="220" height="320" rx="10" fill="#2a1f45" stroke="#a855f7" stroke-width="2" transform="rotate(7 950 350)"/>
+  <text x="80" y="780" fill="#ffffff" font-family="Georgia, serif" font-size="48" font-weight="700">PSA vs CGC</text>
+  <text x="80" y="830" fill="#c084fc" font-family="system-ui,sans-serif" font-size="22">Slab premiums for SA collectors</text>
+</svg>
