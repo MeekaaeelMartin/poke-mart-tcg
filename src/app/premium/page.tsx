@@ -190,6 +190,21 @@ export default function PremiumPage() {
             </p>
           </>
         )}
+        <p className="mt-6 text-xs leading-relaxed text-zinc-600">
+          By upgrading you agree to our{" "}
+          <Link href="/legal/terms" className="text-zinc-400 hover:text-[#FFD700]">
+            Terms
+          </Link>
+          ,{" "}
+          <Link href="/legal/subscription" className="text-zinc-400 hover:text-[#FFD700]">
+            Subscription &amp; Refund Policy
+          </Link>
+          , and{" "}
+          <Link href="/legal/financial-disclaimer" className="text-zinc-400 hover:text-[#FFD700]">
+            Financial Disclaimer
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

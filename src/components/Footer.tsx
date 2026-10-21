@@ -66,8 +66,10 @@ export function Footer() {
           </h4>
           <ul className="mt-4 space-y-2 text-sm text-zinc-400">
             <li><Link href="/contact" className="hover:text-[#FFD700]">About Us</Link></li>
-            <li><Link href="/contact" className="hover:text-[#FFD700]">Privacy Policy</Link></li>
-            <li><Link href="/contact" className="hover:text-[#FFD700]">Terms of Use</Link></li>
+            <li><Link href="/legal" className="hover:text-[#FFD700]">Legal Centre</Link></li>
+            <li><Link href="/legal/privacy" className="hover:text-[#FFD700]">Privacy Policy</Link></li>
+            <li><Link href="/legal/terms" className="hover:text-[#FFD700]">Terms of Service</Link></li>
+            <li><Link href="/legal/subscription" className="hover:text-[#FFD700]">Subscription &amp; Refunds</Link></li>
             <li><Link href="/premium" className="hover:text-[#FFD700]">Premium R50/mo</Link></li>
             <li><Link href="/contact" className="hover:text-[#FFD700]">Contact Us</Link></li>
           </ul>
@@ -106,9 +108,16 @@ export function Footer() {
       <div className="border-t border-white/5">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} Poke Mart TCG</p>
-          <p className="max-w-xl sm:text-right">
-            Not affiliated with Nintendo, Game Freak, or The Pokémon Company. All
-            trademarks belong to their respective owners.
+          <p className="max-w-2xl sm:text-right">
+            Not affiliated with Nintendo, Game Freak, or The Pokémon Company.{" "}
+            <Link href="/legal/intellectual-property" className="hover:text-[#FFD700]">
+              IP notice
+            </Link>
+            {" · "}
+            <Link href="/legal/financial-disclaimer" className="hover:text-[#FFD700]">
+              Pricing disclaimer
+            </Link>
+            . All trademarks belong to their respective owners.
           </p>
         </div>
       </div>
