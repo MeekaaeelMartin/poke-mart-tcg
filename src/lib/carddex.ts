@@ -175,22 +175,36 @@ export async function fetchSets(params: Record<string, string | number | undefin
 }
 
 /** Walk every CardDex list page (sets, sealed, cards) up to maxPages. */
-export async function fetchAllPages<T>(
+export async function fetchAllPages<T extends { id?: string }>(
   fetcher: (page: number, pageSize: number) => Promise<{ data?: T[] | null; meta?: ListMeta | null }>,
   opts?: { pageSize?: number; maxPages?: number }
 ): Promise<T[]> {
   const pageSize = opts?.pageSize ?? 100;
   const maxPages = opts?.maxPages ?? 40;
   const all: T[] = [];
+  const seen = new Set<string>();
   let page = 1;
   let totalPages = 1;
 
   do {
     const res = await fetcher(page, pageSize);
     const batch = res.data || [];
-    all.push(...batch);
-    totalPages = res.meta?.totalPages || (batch.length < pageSize ? page : page + 1);
     if (batch.length === 0) break;
+
+    let newCount = 0;
+    for (const row of batch) {
+      const id = row.id ? String(row.id) : "";
+      if (id && seen.has(id)) continue;
+      if (id) seen.add(id);
+      all.push(row);
+      newCount += 1;
+    }
+
+    // No pagination meta (common for /v1/sets): treat as a single complete response.
+    if (!res.meta?.totalPages) break;
+
+    totalPages = res.meta.totalPages;
+    if (newCount === 0) break;
     page += 1;
   } while (page <= totalPages && page <= maxPages);
 
