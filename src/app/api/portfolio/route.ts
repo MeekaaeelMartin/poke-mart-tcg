@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ensureCardInDb } from "@/lib/ensureCard";
+import { requirePremiumSession } from "@/lib/requirePremium";
 
 async function requirePremium() {
-  const session = await auth();
-  if (!session?.user?.id) return { error: NextResponse.json({ error: "Sign in required" }, { status: 401 }) };
-  if (!session.user.isPremium) {
-    return { error: NextResponse.json({ error: "Premium required", code: "PREMIUM_REQUIRED" }, { status: 403 }) };
-  }
-  return { session };
+  return requirePremiumSession();
 }
 
 export async function GET() {
