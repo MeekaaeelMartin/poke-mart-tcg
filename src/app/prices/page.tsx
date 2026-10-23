@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { Card } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ensureDatabase } from "@/lib/ensureDatabase";
@@ -7,12 +8,24 @@ import { formatPct, formatZar } from "@/lib/format";
 import { ArrowDownRight, ArrowUpRight, BarChart3, Crown, Layers } from "lucide-react";
 import { fetchPriceTrends, mapPriceToZar, sealedPriceZar } from "@/lib/carddex";
 import { loadSealedCatalog } from "@/lib/sealedCatalog";
+import { buildMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Market Prices & Trends",
-};
+export const metadata: Metadata = buildMetadata({
+  title: "Pokemon Card Market Prices & Trends (ZAR)",
+  description:
+    "Live Pokemon TCG market movers in South African Rand. Track rising and falling singles, Elite Trainer Box prices, booster box benchmarks, and sealed product trends with nightly CardDex sync.",
+  path: "/prices",
+  keywords: [
+    "Pokemon card market trends",
+    "Pokemon price chart",
+    "ETB price South Africa",
+    "Pokemon booster box price ZAR",
+    "Pokemon sealed product market",
+    "best Pokemon cards to buy South Africa",
+  ],
+});
 
 async function hydrateLiveMovers() {
   try {
@@ -189,13 +202,13 @@ export default async function PricesPage() {
   ];
 
   return (
-    <div className="container-page py-10 pb-16">
+    <div className="container-page py-6 pb-24 sm:py-10 sm:pb-16">
       <SectionHeading
         title="Market Prices & Trends"
         subtitle="Live ZAR pricing synced nightly at 3:00 AM — spot movers, sealed product benchmarks, and portfolio standouts."
       />
 
-      <div className="mb-12 grid gap-4 md:grid-cols-3">
+      <div className="mb-8 grid gap-3 sm:mb-12 sm:gap-4 md:grid-cols-3">
         {stats.map((stat) => {
           const inner = (
             <div className="flex items-start justify-between gap-3">

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -11,6 +12,7 @@ import {
 import { loadSealedCatalog } from "@/lib/sealedCatalog";
 import { eurToZar, formatZar } from "@/lib/format";
 import { mediaUrl } from "@/lib/media";
+import { buildMetadata } from "@/lib/seo";
 import { CardTile } from "@/components/CardUI";
 import { prisma } from "@/lib/db";
 import { ArrowLeft } from "lucide-react";
@@ -35,16 +37,33 @@ function toTile(card: CardDexCard) {
   };
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const { data } = await fetchSetById(id);
-    return {
-      title: data.name,
-      description: `${data.series || "Pokemon TCG"} set — ${data.total_cards || data.official_cards || "?"} cards`,
-    };
+    const count = data.total_cards || data.official_cards || "?";
+    const series = data.series || "Pokemon TCG";
+    return buildMetadata({
+      title: `${data.name} Set Checklist & Card Prices (ZAR)`,
+      description: `${data.name} Pokemon TCG set (${series}) — ${count} cards with live South African Rand prices, sealed ETB links, and set checklist. Browse every print on Poke Mart TCG.`,
+      path: `/sets/${encodeURIComponent(id)}`,
+      keywords: [
+        `${data.name} Pokemon set`,
+        `${data.name} checklist`,
+        `${data.name} card list`,
+        "Pokemon set prices South Africa",
+        "Pokemon expansion checklist",
+      ],
+      image: data.logo_url || undefined,
+      imageAlt: `${data.name} set logo`,
+    });
   } catch {
-    return { title: "Set details" };
+    return buildMetadata({
+      title: "Pokemon TCG Set Checklist & Prices",
+      description:
+        "Pokemon TCG set checklist with live ZAR card prices and sealed product links.",
+      path: `/sets/${encodeURIComponent(id)}`,
+    });
   }
 }
 

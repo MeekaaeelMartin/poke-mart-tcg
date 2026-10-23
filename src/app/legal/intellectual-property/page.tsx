@@ -3,9 +3,10 @@ import Link from "next/link";
 import { H2, LEGAL_CONTACT, LEGAL_OPERATOR, LegalDoc, P, Ul } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Intellectual Property & Fair Use Disclaimer",
+  title: "Intellectual Property & Fair Use — Pokemon Trademarks",
   description:
-    "IP ownership, Pokémon trademarks, CardDex data, and fair use for Poke Mart TCG.",
+    "IP ownership, Pokémon trademarks, CardDex market data, and fair use notice for Poke Mart TCG. Not affiliated with The Pokémon Company.",
+  alternates: { canonical: "/legal/intellectual-property" },
 };
 
 export default function IntellectualPropertyPage() {

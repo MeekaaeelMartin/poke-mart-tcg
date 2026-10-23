@@ -3,8 +3,10 @@ import Link from "next/link";
 import { H2, LEGAL_CONTACT, LEGAL_OPERATOR, LegalDoc, P, Ul } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Terms of Service",
-  description: "Terms of Service for using Poke Mart TCG.",
+  title: "Terms of Service — Pokemon TCG Site Rules",
+  description:
+    "Terms of Service for Poke Mart TCG: accounts, acceptable use, Pokemon card price data, premium subscriptions, and liability limits for South African users.",
+  alternates: { canonical: "/legal/terms" },
 };
 
 export default function TermsPage() {

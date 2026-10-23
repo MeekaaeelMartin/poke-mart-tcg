@@ -284,6 +284,21 @@ export async function fetchCardPriceHistory(cardId: string, days = 90) {
   }>(`/v1/cards/${encodeURIComponent(cardId)}/prices/history?days=${days}`);
 }
 
+/** Best-effort sealed history — CardDex may 404; callers should fall back to snapshot points. */
+export async function fetchSealedPriceHistory(sealedId: string, days = 90) {
+  return carddexFetch<{
+    data: Array<{
+      date: string;
+      trend_price?: number | null;
+      trend?: number | null;
+      avg_price?: number | null;
+      avg?: number | null;
+      low_price?: number | null;
+      low?: number | null;
+    }>;
+  }>(`/v1/sealed/${encodeURIComponent(sealedId)}/prices/history?days=${days}`);
+}
+
 export function normalizeCardPrices(prices: CardDexCard["prices"]): CardDexPriceRow | null {
   if (!prices) return null;
   if (Array.isArray(prices)) {

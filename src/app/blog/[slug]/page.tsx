@@ -8,6 +8,7 @@ import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
 import { ensureDatabase } from "@/lib/ensureDatabase";
 import { cn } from "@/lib/format";
 import { mediaUrl } from "@/lib/media";
+import { buildMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -182,11 +183,29 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPost(slug);
-  if (!post) return { title: "Article Not Found" };
-  return {
+  if (!post) {
+    return buildMetadata({
+      title: "Article Not Found",
+      description: "This TCG Price Lab article could not be found.",
+      path: `/blog/${encodeURIComponent(slug)}`,
+      noIndex: true,
+    });
+  }
+  return buildMetadata({
     title: post.title,
     description: post.excerpt,
-  };
+    path: `/blog/${encodeURIComponent(slug)}`,
+    type: "article",
+    keywords: [
+      post.category,
+      "Pokemon TCG blog",
+      "Pokemon market South Africa",
+      post.title,
+    ],
+    image: post.imageUrl || undefined,
+    imageAlt: post.title,
+    publishedTime: post.publishedAt.toISOString(),
+  });
 }
 
 export default async function BlogArticlePage({ params }: Props) {

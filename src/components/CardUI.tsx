@@ -70,15 +70,17 @@ export function CardTile({
           loading="lazy"
         />
       </div>
-      <div className="space-y-1.5 p-4">
-        <h3 className="truncate text-sm font-semibold text-white">
+      <div className="space-y-1 p-3 sm:space-y-1.5 sm:p-4">
+        <h3 className="truncate text-xs font-semibold text-white sm:text-sm">
           {card.name}
           {card.number ? ` #${card.number}` : ""}
         </h3>
-        <p className="truncate text-xs text-zinc-500">{card.setName || "Unknown set"}</p>
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <p className="truncate text-[11px] text-zinc-500 sm:text-xs">
+          {card.setName || "Unknown set"}
+        </p>
+        <div className="flex items-center justify-between gap-1.5 pt-1">
           <span
-            className={`text-sm font-bold ${
+            className={`truncate text-xs font-bold sm:text-sm ${
               card.priceZar == null ? "text-zinc-500" : "text-white"
             }`}
           >

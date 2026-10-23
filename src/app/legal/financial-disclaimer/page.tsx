@@ -3,9 +3,10 @@ import Link from "next/link";
 import { H2, LEGAL_CONTACT, LEGAL_OPERATOR, LegalDoc, P, Ul } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Financial & Pricing Disclaimer",
+  title: "Financial & Pricing Disclaimer — Not Investment Advice",
   description:
-    "Market prices on Poke Mart TCG are informational — not investment or trading advice.",
+    "Pokemon card and sealed product prices on Poke Mart TCG are informational market guides in ZAR — not investment, trading, or financial advice.",
+  alternates: { canonical: "/legal/financial-disclaimer" },
 };
 
 export default function FinancialDisclaimerPage() {

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { H2, LEGAL_CONTACT, LEGAL_OPERATOR, LegalDoc, P, Ul } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Subscription & Refund Policy",
-  description: "Premium billing, cancellation, and refund rules for Poke Mart TCG.",
+  title: "Subscription & Refund Policy — Premium R50/mo",
+  description:
+    "Poke Mart TCG premium billing, cancellation, and refund rules for the R50/mo Pokemon collection tracker subscription.",
+  alternates: { canonical: "/legal/subscription" },
 };
 
 export default function SubscriptionPage() {

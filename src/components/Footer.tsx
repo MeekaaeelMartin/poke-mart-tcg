@@ -80,18 +80,18 @@ export function Footer() {
           <p className="mt-2 text-sm text-zinc-400">
             Weekly market digests for South African trainers.
           </p>
-          <form onSubmit={subscribe} className="mt-4 flex gap-2">
+          <form onSubmit={subscribe} className="mt-4 flex flex-col gap-2 sm:flex-row">
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your trainer email..."
-              className="w-full rounded-lg border border-white/10 bg-[#12151E] px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-[#FFD700]/50 focus:outline-none"
+              className="min-h-11 w-full rounded-lg border border-white/10 bg-[#12151E] px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-[#FFD700]/50 focus:outline-none"
             />
             <button
               type="submit"
-              className="shrink-0 rounded-lg bg-[#FFD700] px-4 py-2 text-sm font-semibold text-[#0B0E14]"
+              className="min-h-11 shrink-0 rounded-lg bg-[#FFD700] px-4 py-2 text-sm font-semibold text-[#0B0E14]"
             >
               Subscribe
             </button>

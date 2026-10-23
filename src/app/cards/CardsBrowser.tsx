@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { Loader2, SlidersHorizontal, X } from "lucide-react";
 import { CardTile, EmptyState } from "@/components/CardUI";
 import { cn } from "@/lib/format";
 
@@ -410,9 +410,9 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
 
   return (
     <div>
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <h1
-          className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
+          className="text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl"
           style={{ fontFamily: "var(--font-syne), sans-serif" }}
         >
           Poke Card Database
@@ -423,36 +423,42 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
         </p>
       </div>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             resetPage();
           }}
-          className="flex flex-1 max-w-xl items-center gap-2 rounded-xl border border-white/10 bg-[#12151E] px-3 py-1.5"
+          className="flex max-w-xl flex-1 items-center gap-2 rounded-xl border border-white/10 bg-[#12151E] px-3 py-1.5"
         >
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search card name, number, or set..."
-            className="w-full bg-transparent py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+            className="min-w-0 w-full bg-transparent py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none"
+            enterKeyHint="search"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-lg bg-[#FFD700]/15 px-3 py-1.5 text-xs font-semibold text-[#FFD700] hover:bg-[#FFD700]/25"
+            className="min-h-9 shrink-0 rounded-lg bg-[#FFD700]/15 px-3 py-1.5 text-xs font-semibold text-[#FFD700] hover:bg-[#FFD700]/25"
           >
             Search
           </button>
         </form>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 sm:flex-none lg:hidden"
           >
             <SlidersHorizontal size={16} />
             Filters
+            {hasFilters ? (
+              <span className="rounded-full bg-[#FFD700] px-1.5 py-0.5 text-[10px] font-bold text-[#0B0E14]">
+                On
+              </span>
+            ) : null}
           </button>
           <select
             value={sort}
@@ -460,7 +466,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
               setSort(e.target.value);
               resetPage();
             }}
-            className="rounded-lg border border-white/10 bg-[#12151E] px-3 py-2 text-sm text-white focus:border-[#FFD700]/50 focus:outline-none"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#12151E] px-3 py-2 text-sm text-white focus:border-[#FFD700]/50 focus:outline-none sm:flex-none"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -471,16 +477,53 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-        <div className={cn("hidden lg:block", sidebarOpen && "!block")}>{sidebar}</div>
+      {/* Mobile / tablet filter drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/65"
+            aria-label="Close filters"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="absolute inset-y-0 left-0 flex w-[min(100%,20.5rem)] flex-col border-r border-white/10 bg-[#0B0E14] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+              <h2 className="text-sm font-semibold text-white">Filters</h2>
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-zinc-400"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+              {sidebar}
+            </div>
+            <div className="border-t border-white/8 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="min-h-11 w-full rounded-xl bg-[#FFD700] text-sm font-semibold text-[#0B0E14]"
+              >
+                Show results
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-        <div>
+      <div className="grid gap-6 lg:grid-cols-[260px_1fr] lg:gap-8">
+        <div className="hidden lg:block">{sidebar}</div>
+
+        <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
             <span>
               {loading
                 ? "Searching CardDex…"
                 : total > 0
-                  ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} cards from CardDex`
+                  ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} cards`
                   : "No cards found"}
             </span>
             {!loading && totalPages > 1 && (
@@ -500,7 +543,7 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
           ) : cards.length === 0 ? (
             <EmptyState message="No cards match your filters. Try another name — results come live from CardDex." />
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
               {cards.map((card) => (
                 <CardTile key={card.id} card={card} />
               ))}
@@ -508,12 +551,12 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
           )}
 
           {!loading && hasMore && (
-            <div className="mt-10 flex flex-col items-center gap-3">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:mt-10">
               <button
                 type="button"
                 disabled={loadingMore}
                 onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#FFD700] px-6 py-3 text-sm font-semibold text-[#0B0E14] transition hover:brightness-105 disabled:opacity-60"
+                className="inline-flex min-h-12 w-full max-w-md items-center justify-center gap-2 rounded-xl bg-[#FFD700] px-6 py-3 text-sm font-semibold text-[#0B0E14] transition hover:brightness-105 disabled:opacity-60 sm:w-auto"
               >
                 {loadingMore ? (
                   <>
@@ -521,17 +564,17 @@ export function CardsBrowser({ sets }: { sets: SetOption[] }) {
                     Loading more…
                   </>
                 ) : (
-                  `Load more cards (${Math.min(PAGE_SIZE, total - shown)} remaining of ${total.toLocaleString()})`
+                  `Load more (${Math.min(PAGE_SIZE, total - shown)} of ${total.toLocaleString()})`
                 )}
               </button>
-              <p className="text-xs text-zinc-500">
+              <p className="px-2 text-center text-xs text-zinc-500">
                 Keep loading until all {total.toLocaleString()} CardDex matches are listed.
               </p>
             </div>
           )}
 
           {!loading && !hasMore && total > 0 && (
-            <p className="mt-10 text-center text-sm text-zinc-500">
+            <p className="mt-8 text-center text-sm text-zinc-500 sm:mt-10">
               All {total.toLocaleString()} matching cards loaded from CardDex.
             </p>
           )}

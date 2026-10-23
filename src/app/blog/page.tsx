@@ -4,11 +4,21 @@ import { BlogLab, type BlogPostItem } from "@/components/BlogLab";
 import { BLOG_SEED_POSTS } from "@/lib/blogPosts";
 import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
 import { ensureDatabase } from "@/lib/ensureDatabase";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "TCG Price Lab",
-  description: "Market analysis, set reviews, and collecting insights for South African Pokemon TCG collectors.",
-};
+export const metadata: Metadata = buildMetadata({
+  title: "TCG Price Lab — Pokemon Market Analysis & Guides",
+  description:
+    "Pokemon TCG market analysis for South Africa: sealed product premiums, set reviews, grading guides, PSA vs CGC, and ZAR investment outlook from the Poke Mart Price Lab.",
+  path: "/blog",
+  keywords: [
+    "Pokemon TCG blog",
+    "Pokemon market analysis South Africa",
+    "Pokemon grading guide",
+    "Pokemon investment outlook",
+    "sealed product premium SA",
+  ],
+});
 
 export const dynamic = "force-dynamic";
 

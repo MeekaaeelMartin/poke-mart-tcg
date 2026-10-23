@@ -3,9 +3,10 @@ import Link from "next/link";
 import { H2, LEGAL_CONTACT, LEGAL_OPERATOR, LegalDoc, P, Ul } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy (POPIA & GDPR)",
+  title: "Privacy Policy (POPIA & GDPR) — South Africa",
   description:
-    "How Poke Mart TCG processes personal information under POPIA and GDPR.",
+    "How Poke Mart TCG collects, uses, and protects personal information under POPIA and GDPR for Pokemon TCG collectors in South Africa.",
+  alternates: { canonical: "/legal/privacy" },
 };
 
 export default function PrivacyPage() {

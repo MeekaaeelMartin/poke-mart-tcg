@@ -25,6 +25,7 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -32,6 +33,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-outfit), system-ui, sans-serif;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+img,
+video,
+svg {
+  max-width: 100%;
+  height: auto;
 }
 
 body::before {
@@ -63,18 +73,30 @@ button {
   margin-inline: auto;
   width: 100%;
   max-width: 80rem;
-  padding-inline: 1rem;
+  padding-inline: max(0.875rem, env(safe-area-inset-left));
+  padding-inline-end: max(0.875rem, env(safe-area-inset-right));
 }
 
 @media (min-width: 640px) {
   .container-page {
-    padding-inline: 1.5rem;
+    padding-inline: max(1.5rem, env(safe-area-inset-left));
+    padding-inline-end: max(1.5rem, env(safe-area-inset-right));
   }
 }
 
 @media (min-width: 1024px) {
   .container-page {
-    padding-inline: 2rem;
+    padding-inline: max(2rem, env(safe-area-inset-left));
+    padding-inline-end: max(2rem, env(safe-area-inset-right));
+  }
+}
+
+/* Comfortable tap targets on touch devices */
+@media (pointer: coarse) {
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 

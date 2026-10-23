@@ -3,9 +3,16 @@ import Link from "next/link";
 import { LEGAL_CONTACT, LEGAL_UPDATED } from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "Legal Centre",
+  title: "Legal Centre — Terms, Privacy & Disclaimers",
   description:
-    "Terms of Service, Privacy Policy (POPIA & GDPR), Subscription & Refunds, IP disclaimer, and financial pricing disclaimer for Poke Mart TCG.",
+    "Terms of Service, Privacy Policy (POPIA & GDPR), Subscription & Refunds, IP & Fair Use, and financial pricing disclaimer for Poke Mart TCG South Africa.",
+  alternates: { canonical: "/legal" },
+  openGraph: {
+    title: "Legal Centre | Poke Mart TCG",
+    description:
+      "Terms, POPIA/GDPR privacy, subscriptions, IP notice, and financial disclaimer for Poke Mart TCG.",
+    url: "/legal",
+  },
 };
 
 const DOCS = [

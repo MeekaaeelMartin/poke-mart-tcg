@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { CardTile, SectionHeading } from "@/components/CardUI";
@@ -15,8 +16,24 @@ import { ensureDatabase } from "@/lib/ensureDatabase";
 import { loadFeaturedSets } from "@/lib/setsCatalog";
 import { loadSealedCatalog } from "@/lib/sealedCatalog";
 import { ensureBlogPosts } from "@/lib/ensureBlogPosts";
+import { buildMetadata } from "@/lib/seo";
+import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = buildMetadata({
+  title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+  absoluteTitle: true,
+  description:
+    "South Africa's Pokemon TCG price tracker. Live ZAR values for singles, Elite Trainer Boxes, booster boxes & sealed product, set checklists, price history graphs, and premium portfolio tools.",
+  path: "/",
+  keywords: [
+    "Pokemon card price tracker South Africa",
+    "Pokemon TCG ZAR",
+    "buy Pokemon cards South Africa value",
+    "Pokemon ETB price tracker",
+  ],
+});
 
 async function hydrateLiveTrending() {
   try {
@@ -176,40 +193,40 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="container-page grid items-center gap-10 py-14 lg:grid-cols-2 lg:py-20">
-        <div className="animate-fade-up">
+      <section className="container-page grid items-center gap-8 py-8 sm:gap-10 sm:py-14 lg:grid-cols-2 lg:py-20">
+        <div className="animate-fade-up order-1">
           <span className="inline-flex rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-violet-300">
             All-in-one tracker
           </span>
           <h1
-            className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl"
+            className="mt-4 font-display text-[2rem] font-extrabold leading-[1.05] tracking-tight text-white sm:mt-5 sm:text-5xl lg:text-6xl"
             style={{ fontFamily: "var(--font-syne), sans-serif" }}
           >
             Track. Collect.{" "}
             <span className="text-[#FFD700]">Dominate.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-zinc-400">
+          <p className="mt-4 max-w-lg text-sm leading-relaxed text-zinc-400 sm:mt-5 sm:text-base">
             South Africa&apos;s Pokemon TCG companion — live ZAR pricing, set
             completion metrics, and a premium portfolio dashboard for serious collectors.
           </p>
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <HomeSearch />
           </div>
         </div>
 
-        <div className="relative mx-auto flex h-[360px] w-full max-w-md items-center justify-center lg:h-[420px]">
+        <div className="relative order-2 mx-auto flex h-[280px] w-full max-w-md items-center justify-center sm:h-[360px] lg:h-[420px]">
           <div className="absolute inset-0 rounded-full bg-[#FFD700]/10 blur-3xl" />
           {(cards.length ? cards : [{ id: "1", imageLarge: null, imageSmall: null, name: "Card" }])
             .slice(0, 3)
             .map((c, i) => (
               <div
                 key={c.id}
-                className={`absolute h-56 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#12151E] shadow-2xl sm:h-64 sm:w-44 ${
+                className={`absolute h-44 w-32 overflow-hidden rounded-xl border border-white/10 bg-[#12151E] shadow-2xl sm:h-64 sm:w-44 ${
                   i === 0
                     ? "z-20 animate-float -rotate-6"
                     : i === 1
-                      ? "z-10 translate-x-16 animate-float-delayed rotate-6 sm:translate-x-24"
-                      : "z-0 -translate-x-14 translate-y-6 rotate-[-12deg] opacity-80 sm:-translate-x-20"
+                      ? "z-10 translate-x-12 animate-float-delayed rotate-6 sm:translate-x-24"
+                      : "z-0 -translate-x-10 translate-y-6 rotate-[-12deg] opacity-80 sm:-translate-x-20"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -228,7 +245,7 @@ export default async function HomePage() {
       </section>
 
       {/* Trending */}
-      <section className="container-page py-12">
+      <section className="container-page py-8 sm:py-12">
         <SectionHeading
           title="Trending Now"
           action={
@@ -237,7 +254,7 @@ export default async function HomePage() {
             </Link>
           }
         />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
           {cards.length === 0 ? (
             <p className="col-span-full text-sm text-zinc-500">
               Prices sync nightly at 3:00 AM. Run{" "}

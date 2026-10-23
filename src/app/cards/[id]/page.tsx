@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -9,7 +10,11 @@ import {
 import { eurToZar, formatPct, formatZar, rarityBadge } from "@/lib/format";
 import { prisma } from "@/lib/db";
 import { mediaUrl } from "@/lib/media";
+import { mapCardHistoryRows } from "@/lib/priceHistory";
+import { absoluteUrl, buildMetadata } from "@/lib/seo";
 import { AddToCollection } from "@/components/AddToCollection";
+import { PriceHistoryChart } from "@/components/PriceHistoryChart";
+import { ProductJsonLd } from "@/components/JsonLd";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -33,16 +38,43 @@ function pctFromPrices(row: ReturnType<typeof normalizeCardPrices>) {
   return null;
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const { data } = await fetchCardById(id, "images");
-    return {
-      title: `${data.name}${data.number ? ` #${data.number}` : ""}`,
-      description: `${data.set_name || "Pokemon TCG"} — live ZAR pricing from CardDex`,
-    };
+    const label = `${data.name}${data.number ? ` #${data.number}` : ""}`;
+    const set = data.set_name || "Pokemon TCG";
+    const rarity = data.rarity ? ` Rarity: ${data.rarity}.` : "";
+    const row = normalizeCardPrices(data.prices);
+    const zar = eurToZar(row?.trend_price ?? row?.avg_price ?? null);
+    const priceBit =
+      zar != null ? ` Current market guide: ${formatZar(zar)}.` : "";
+    const img =
+      data.images?.[0]?.large_url ||
+      data.images?.[0]?.small_url ||
+      data.image_url ||
+      undefined;
+    return buildMetadata({
+      title: `${label} Price (ZAR) — ${set}`,
+      description: `Live ${label} Pokemon card price in South African Rand from ${set}.${rarity} Includes price history chart, trend, average & low.${priceBit} Track on Poke Mart TCG.`,
+      path: `/cards/${encodeURIComponent(id)}`,
+      keywords: [
+        `${data.name} card price`,
+        `${data.name} Pokemon card value`,
+        `${set} Pokemon cards`,
+        "Pokemon card price chart",
+        "Pokemon card price South Africa",
+      ],
+      image: img,
+      imageAlt: `${label} Pokemon card`,
+    });
   } catch {
-    return { title: "Card details" };
+    return buildMetadata({
+      title: "Pokemon Card Price (ZAR)",
+      description:
+        "Live Pokemon TCG card price in South African Rand with price history chart.",
+      path: `/cards/${encodeURIComponent(id)}`,
+    });
   }
 }
 
@@ -90,33 +122,39 @@ export default async function CardDetailPage({ params }: Props) {
   const avg30Zar = eurToZar(priceRow?.avg_30d ?? null);
   const pct = pctFromPrices(priceRow);
 
-  let history: Array<{ date: string; trend_price?: number | null }> = [];
+  let historyPoints = mapCardHistoryRows([]);
   try {
-    const hist = await fetchCardPriceHistory(id, 30);
-    history = hist.data || [];
+    const hist = await fetchCardPriceHistory(id, 90);
+    historyPoints = mapCardHistoryRows(hist.data || []);
   } catch {
-    history = [];
+    historyPoints = [];
   }
 
-  const maxHist = Math.max(...history.map((h) => h.trend_price || 0), 1);
-
   return (
-    <div className="container-page py-10 pb-16">
+    <div className="container-page py-6 pb-24 sm:py-10 sm:pb-16">
+      <ProductJsonLd
+        name={`${card.name}${card.number ? ` #${card.number}` : ""}`}
+        description={`${card.set_name || "Pokemon TCG"} card — live ZAR market price and history on Poke Mart TCG.`}
+        image={cardImage(card)}
+        url={absoluteUrl(`/cards/${encodeURIComponent(card.id)}`)}
+        priceZar={trendZar}
+        category={card.rarity || "Pokemon Trading Card"}
+      />
       <Link
         href="/cards"
-        className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-[#FFD700]"
+        className="inline-flex min-h-11 items-center gap-2 text-sm text-zinc-400 transition hover:text-[#FFD700]"
       >
         <ArrowLeft size={16} /> Back to card database
       </Link>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,380px)_1fr]">
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-3xl border border-white/8 bg-[#12151E] p-4 shadow-[0_0_40px_rgba(255,215,0,0.06)]">
+      <div className="mt-6 grid gap-8 lg:mt-8 lg:grid-cols-[minmax(0,380px)_1fr] lg:gap-10">
+        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="overflow-hidden rounded-2xl border border-white/8 bg-[#12151E] p-3 shadow-[0_0_40px_rgba(255,215,0,0.06)] sm:rounded-3xl sm:p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cardImage(card)}
               alt={card.name}
-              className="mx-auto w-full max-w-sm object-contain"
+              className="mx-auto w-full max-w-[280px] object-contain sm:max-w-sm"
             />
           </div>
           <AddToCollection cardId={card.id} cardName={card.name} />
@@ -140,7 +178,7 @@ export default async function CardDetailPage({ params }: Props) {
           </div>
 
           <h1
-            className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl"
+            className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl"
             style={{ fontFamily: "var(--font-syne), sans-serif" }}
           >
             {card.name}
@@ -160,7 +198,7 @@ export default async function CardDetailPage({ params }: Props) {
           )}
 
           {/* Price panel */}
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
             {[
               { label: "Trend (ZAR)", value: formatZar(trendZar), accent: true },
               { label: "Average", value: formatZar(avgZar) },
@@ -173,11 +211,13 @@ export default async function CardDetailPage({ params }: Props) {
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-2xl border border-white/8 bg-[#12151E] p-4"
+                className="rounded-2xl border border-white/8 bg-[#12151E] p-3 sm:p-4"
               >
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">{s.label}</p>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500 sm:text-[11px]">
+                  {s.label}
+                </p>
                 <p
-                  className={`mt-1 text-lg font-bold ${
+                  className={`mt-1 text-base font-bold sm:text-lg ${
                     s.accent
                       ? "text-[#FFD700]"
                       : s.up === true
@@ -193,15 +233,31 @@ export default async function CardDetailPage({ params }: Props) {
             ))}
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/8 bg-[#12151E] p-4">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-500">7-day avg</p>
-              <p className="mt-1 text-base font-semibold text-white">{formatZar(avg7Zar)}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div className="rounded-2xl border border-white/8 bg-[#12151E] p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 sm:text-[11px]">
+                7-day avg
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white sm:text-base">
+                {formatZar(avg7Zar)}
+              </p>
             </div>
-            <div className="rounded-2xl border border-white/8 bg-[#12151E] p-4">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-500">30-day avg</p>
-              <p className="mt-1 text-base font-semibold text-white">{formatZar(avg30Zar)}</p>
+            <div className="rounded-2xl border border-white/8 bg-[#12151E] p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 sm:text-[11px]">
+                30-day avg
+              </p>
+              <p className="mt-1 text-sm font-semibold text-white sm:text-base">
+                {formatZar(avg30Zar)}
+              </p>
             </div>
+          </div>
+
+          <div className="mt-6">
+            <PriceHistoryChart
+              points={historyPoints}
+              title="Price history (ZAR)"
+              subtitle="Daily CardDex trend — drag or tap to inspect"
+            />
           </div>
 
           {/* Specs */}
@@ -306,32 +362,6 @@ export default async function CardDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-
-          {/* Price history spark bars */}
-          {history.length > 0 && (
-            <div className="mt-8 rounded-2xl border border-white/8 bg-[#12151E] p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                30-day price history (EUR → ZAR trend)
-              </h2>
-              <div className="mt-4 flex h-28 items-end gap-1">
-                {history.slice(-30).map((h) => {
-                  const zar = eurToZar(h.trend_price);
-                  const height = Math.max(8, ((h.trend_price || 0) / maxHist) * 100);
-                  return (
-                    <div
-                      key={h.date}
-                      title={`${h.date}: ${formatZar(zar)}`}
-                      className="flex-1 rounded-t bg-[#FFD700]/70 transition hover:bg-[#FFD700]"
-                      style={{ height: `${height}%` }}
-                    />
-                  );
-                })}
-              </div>
-              <p className="mt-3 text-xs text-zinc-500">
-                Hover bars for daily values. Source: CardDex / Cardmarket.
-              </p>
-            </div>
-          )}
 
           {card.cardmarket_url && (
             <a
