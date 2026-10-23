@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
       "./prisma/**/*",
     ],
   },
+  // Shared hosts (Hostinger) hit process/thread caps when Next spawns ~NCPU workers
+  // during "Collecting page data" → EAGAIN / SIGABRT. Keep parallelism low.
+  experimental: {
+    cpus: 2,
+    workerThreads: false,
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.carddex.dev" },
